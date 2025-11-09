@@ -6,13 +6,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Loader2 } from 'lucide-react'
-import { useUnifiedAuth } from '@/context/UnifiedAuthContext'
+import { useUnifiedAuthSafe } from '@/context/UnifiedAuthContext'
 
 // Force dynamic rendering (no pre-rendering)
 export const dynamic = 'force-dynamic'
 
 export default function LoginPage() {
-  const { login } = useUnifiedAuth()
+  const { login } = useUnifiedAuthSafe()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')

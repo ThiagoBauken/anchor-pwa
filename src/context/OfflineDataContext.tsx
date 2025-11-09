@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react'
 import { offlineDB } from '@/lib/indexeddb'
-import { useDatabaseAuthSafe } from './DatabaseAuthContext'
+import { useUnifiedAuthSafe } from './UnifiedAuthContext'
 import logger from '@/lib/logger'
 import type { User, Project, Location, AnchorPoint, AnchorTest, AnchorTestResult, MarkerShape, UserRole, FloorPlan } from '@/types'
 
@@ -103,7 +103,7 @@ interface OfflineDataContextType {
 const OfflineDataContext = createContext<OfflineDataContextType | null>(null)
 
 export function OfflineDataProvider({ children }: { children: ReactNode }) {
-  const { user: currentUser, company: currentCompany, isAuthenticated } = useDatabaseAuthSafe()
+  const { user: currentUser, company: currentCompany, isAuthenticated } = useUnifiedAuthSafe()
 
   logger.log('[OfflineDataContext] Auth state:', {
     hasUser: !!currentUser,

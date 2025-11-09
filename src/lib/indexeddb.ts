@@ -359,7 +359,7 @@ class OfflineDB {
     // Update in IndexedDB
     await this.put('anchor_tests', {
       ...test,
-      lastSyncedAt: new Date().toISOString()
+      lastSyncAt: new Date().toISOString()
     }, false) // Don't auto-add to sync queue as 'create'
 
     // Add to sync queue as 'update' operation

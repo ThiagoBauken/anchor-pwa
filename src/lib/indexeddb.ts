@@ -157,18 +157,27 @@ class OfflineDB {
     addToSyncQueue = true
   ): Promise<void> {
     const store = await this.getStore(storeName, 'readwrite')
-    
+
+    // CORREÇÃO: Só adiciona à fila se OFFLINE
+    const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true
+    const shouldQueue = addToSyncQueue && !isOnline && storeName !== 'sync_queue'
+
     return new Promise((resolve, reject) => {
       const request = store.put({
         ...data,
         lastModified: Date.now(),
-        syncStatus: 'pending'
+        syncStatus: shouldQueue ? 'pending' : 'synced'
       })
-      
+
       request.onsuccess = async () => {
-        // Add to sync queue if not a sync operation
-        if (addToSyncQueue && storeName !== 'sync_queue') {
+        // IMPORTANTE: Só adiciona à fila se OFFLINE
+        if (shouldQueue) {
           await this.addToSyncQueue('create', storeName as any, data)
+          if (typeof console !== 'undefined') {
+            console.log(`📱 OFFLINE: Item adicionado à fila - ${storeName}`)
+          }
+        } else if (isOnline && typeof console !== 'undefined') {
+          console.log(`🌐 ONLINE: Item NÃO vai pra fila - ${storeName}`)
         }
         resolve()
       }

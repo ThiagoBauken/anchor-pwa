@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useDatabaseAuthSafe } from '@/context/DatabaseAuthContext';
+import { useUnifiedAuthSafe } from '@/context/UnifiedAuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Users, Plus, Shield, Building2 } from 'lucide-react';
 import { getTeamsForCompany } from '@/app/actions/team-actions';
@@ -12,7 +12,7 @@ import CreateTeamDialog from './create-team-dialog';
 import TeamDetailsDialog from './team-details-dialog';
 
 export function TeamsTab() {
-  const { user: currentUser, company } = useDatabaseAuthSafe();
+  const { user: currentUser, company } = useUnifiedAuthSafe();
   const { toast } = useToast();
   const [teams, setTeams] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { useDatabaseAuthSafe } from '@/context/DatabaseAuthContext';
+import { useUnifiedAuthSafe } from '@/context/UnifiedAuthContext';
 import { Plus, Trash2, UserPlus, Crown, Eye, User } from 'lucide-react';
 import {
   getTeamMembers,
@@ -34,7 +34,7 @@ interface TeamMembersManagerProps {
 
 export default function TeamMembersManager({ teamId, onUpdate }: TeamMembersManagerProps) {
   const { toast } = useToast();
-  const { company } = useDatabaseAuthSafe();
+  const { company } = useUnifiedAuthSafe();
   const [members, setMembers] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);

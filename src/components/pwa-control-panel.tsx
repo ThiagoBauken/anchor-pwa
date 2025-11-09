@@ -50,6 +50,9 @@ export function PwaControlPanel() {
 
   // Load initial data
   useEffect(() => {
+    // Only run on client side
+    if (typeof window === 'undefined') return
+
     loadStatus()
     checkForUpdates()
 

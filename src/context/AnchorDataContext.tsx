@@ -3,7 +3,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { AnchorPoint, AnchorTest, User, Project, AnchorTestResult, Location, MarkerShape, Company, UserRole } from '@/types';
-import { useDatabaseAuth } from '@/context/DatabaseAuthContext';
+import { useUnifiedAuth } from '@/context/UnifiedAuthContext';
 import logger from '@/lib/logger';
 // Server actions imported dynamically to avoid SSR issues
 
@@ -65,8 +65,8 @@ interface AnchorDataContextType {
 const AnchorDataContext = createContext<AnchorDataContextType | undefined>(undefined);
 
 export const AnchorDataProvider = ({ children }: { children: ReactNode }) => {
-  // Get authenticated user from DatabaseAuthContext
-  const { user: authUser, company: authCompany } = useDatabaseAuth();
+  // Get authenticated user from UnifiedAuthContext
+  const { user: authUser, company: authCompany } = useUnifiedAuth();
 
   // DB state
   const [projects, setProjects] = useState<Project[]>([]);

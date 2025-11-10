@@ -841,11 +841,31 @@ export function OfflineDataProvider({ children }: { children: ReactNode }) {
   }
 
   const updateLocation = async (location: Location): Promise<void> => {
+    // Get old location to check if name changed
+    const oldLocation = locations.find(l => l.id === location.id)
+    const nameChanged = oldLocation && oldLocation.name !== location.name
+
     await offlineDB.put('locations', location)
-    
+
     // Update local state
     setLocations(prev => prev.map(l => l.id === location.id ? location : l))
-    
+
+    // If name changed, update all points that use this location
+    if (nameChanged && oldLocation) {
+      logger.log(`🔄 Location name changed from "${oldLocation.name}" to "${location.name}", updating points...`)
+
+      const pointsToUpdate = points.filter(p => p.localizacao === oldLocation.name)
+      logger.log(`Found ${pointsToUpdate.length} points to update`)
+
+      for (const point of pointsToUpdate) {
+        const updatedPoint = { ...point, localizacao: location.name }
+        await offlineDB.updatePoint(updatedPoint)
+        setPoints(prev => prev.map(p => p.id === point.id ? updatedPoint : p))
+      }
+
+      logger.log(`✅ Updated ${pointsToUpdate.length} points with new location name`)
+    }
+
     logger.log('✅ Location updated offline:', location.name)
   }
 

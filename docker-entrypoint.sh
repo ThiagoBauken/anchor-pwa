@@ -1,49 +1,37 @@
 #!/bin/sh
 set -e
 
-echo "🔄 Starting database initialization..."
-echo "📊 Environment check:"
-echo "   DATABASE_URL: ${DATABASE_URL:0:50}..." # Show first 50 chars only (hide password)
-echo "   NODE_ENV: $NODE_ENV"
+echo "🔄 Starting application..."
+echo "📊 Environment: NODE_ENV=$NODE_ENV"
 echo ""
 
-# Wait for PostgreSQL to accept connections
-MAX_RETRIES=90
+# Wait for database and run migrations
+MAX_RETRIES=60
 RETRY_COUNT=0
-WAIT_TIME=2
 
-echo "🔄 Waiting for PostgreSQL to be ready (up to $((MAX_RETRIES * WAIT_TIME))s = 3 minutes)..."
+echo "🔄 Waiting for PostgreSQL and running migrations..."
+echo ""
 
-# Test connection until successful
-until npx prisma db push --skip-generate --accept-data-loss 2>&1 | grep -q "database is already in sync\|changes have been applied\|is now in sync"; do
+while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
   RETRY_COUNT=$((RETRY_COUNT + 1))
 
-  if [ $RETRY_COUNT -ge $MAX_RETRIES ]; then
+  echo "⏳ Attempt $RETRY_COUNT/$MAX_RETRIES"
+
+  # Try to run migrations - this will succeed when DB is ready
+  if npx prisma migrate deploy 2>&1; then
     echo ""
-    echo "❌ Failed to connect to PostgreSQL after $MAX_RETRIES attempts ($((MAX_RETRIES * WAIT_TIME))s total)"
-    echo ""
-    echo "🔍 Troubleshooting:"
-    echo "   - PostgreSQL container may not be started yet"
-    echo "   - Check DATABASE_URL configuration"
-    echo "   - Verify network connectivity"
-    echo ""
-    exit 1
+    echo "✅ Database migrations completed successfully!"
+    break
+  else
+    if [ $RETRY_COUNT -ge $MAX_RETRIES ]; then
+      echo ""
+      echo "❌ Failed to connect after $MAX_RETRIES attempts"
+      exit 1
+    fi
+    echo "   Waiting 2s before retry..."
+    sleep 2
   fi
-
-  echo "⏳ Attempt $RETRY_COUNT/$MAX_RETRIES - Waiting for database..."
-  sleep $WAIT_TIME
 done
-
-echo "✅ PostgreSQL is accepting connections!"
-echo ""
-echo "📦 Running database migrations..."
-
-# Now run the actual migrations
-if npx prisma migrate deploy 2>&1; then
-  echo "✅ Migrations completed successfully!"
-else
-  echo "⚠️  Migration failed, but continuing (database may already be up to date)"
-fi
 
 echo ""
 echo "🚀 Starting Next.js application..."

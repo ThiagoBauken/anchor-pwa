@@ -196,23 +196,68 @@ export const AnchorDataProvider = ({ children }: { children: ReactNode }) => {
                 setCurrentUser(matchedUser as any);
             }
             
-            const savedCurrentProject = JSON.parse(localStorage.getItem('anchorViewCurrentProject') || 'null');
-            const projectExists = (dbProjects as any).some((p: any) => p.id === savedCurrentProject?.id);
+            // ✅ CORREÇÃO: Carregar apenas ID do localStorage, buscar objeto completo de dbProjects
+            const savedProjectId = localStorage.getItem('anchorViewCurrentProjectId');
+            const savedProject = savedProjectId ? (dbProjects as any).find((p: any) => p.id === savedProjectId) : null;
 
-            if (savedCurrentProject && projectExists) {
-                setCurrentProject(savedCurrentProject);
+            if (savedProject) {
+                setCurrentProject(savedProject);
+                logger.log('🔄 Restored project from ID:', savedProject.name);
             } else if (dbProjects.length > 0) {
                 setCurrentProject(dbProjects[0] as any);
+                logger.log('🎯 Auto-selected first project:', (dbProjects[0] as any).name);
             } else {
                 setCurrentProject(null);
+                logger.log('⚠️ No projects available');
             }
 
-            // Load points and tests from localStorage (for now)
-            console.time('⏱️ [localStorage] Parse points & tests')
-            const savedPoints = JSON.parse(localStorage.getItem('anchorViewPoints') || '[]');
-            const savedTests = JSON.parse(localStorage.getItem('anchorViewTests') || '[]');
-            console.timeEnd('⏱️ [localStorage] Parse points & tests')
-            console.log(`✅ [localStorage] Loaded: ${savedPoints.length} points, ${savedTests.length} tests`)
+            // ✅ Limpar objetos antigos do localStorage (migration)
+            try {
+                localStorage.removeItem('anchorViewCurrentProject');
+                localStorage.removeItem('anchorViewCurrentUser');
+                localStorage.removeItem('anchorViewPoints');
+                localStorage.removeItem('anchorViewTests');
+            } catch (e) {
+                // Ignore cleanup errors
+            }
+
+            // Load points and tests from localStorage (MIGRATION: will be moved to IndexedDB only)
+            // ✅ CORREÇÃO: Tratamento robusto de erro para prevenir QuotaExceededError
+            let savedPoints: any[] = [];
+            let savedTests: any[] = [];
+
+            try {
+                console.time('⏱️ [localStorage] Parse points & tests')
+                const pointsStr = localStorage.getItem('anchorViewPoints');
+                const testsStr = localStorage.getItem('anchorViewTests');
+
+                // Verificar tamanho antes de parsear
+                if (pointsStr && pointsStr.length < 5 * 1024 * 1024) { // Max 5MB
+                    savedPoints = JSON.parse(pointsStr);
+                } else if (pointsStr) {
+                    logger.warn(`⚠️ Points data too large (${(pointsStr.length / 1024 / 1024).toFixed(2)}MB), clearing...`);
+                    localStorage.removeItem('anchorViewPoints');
+                }
+
+                if (testsStr && testsStr.length < 5 * 1024 * 1024) { // Max 5MB
+                    savedTests = JSON.parse(testsStr);
+                } else if (testsStr) {
+                    logger.warn(`⚠️ Tests data too large (${(testsStr.length / 1024 / 1024).toFixed(2)}MB), clearing...`);
+                    localStorage.removeItem('anchorViewTests');
+                }
+
+                console.timeEnd('⏱️ [localStorage] Parse points & tests')
+                console.log(`✅ [localStorage] Loaded: ${savedPoints.length} points, ${savedTests.length} tests`)
+            } catch (error) {
+                logger.error('❌ Failed to load points/tests from localStorage:', error);
+                // Limpar dados corrompidos
+                try {
+                    localStorage.removeItem('anchorViewPoints');
+                    localStorage.removeItem('anchorViewTests');
+                } catch (e) {
+                    // Ignore cleanup errors
+                }
+            }
 
             setAllPoints(savedPoints);
             setAllTests(savedTests);
@@ -247,23 +292,36 @@ export const AnchorDataProvider = ({ children }: { children: ReactNode }) => {
     if(isLoaded) {
       setSyncStatus('saving');
       try {
-        // Only save things that are not in the DB yet
-        localStorage.setItem('anchorViewPoints', JSON.stringify(allPoints));
-        localStorage.setItem('anchorViewTests', JSON.stringify(allTests));
+        // ✅ CORREÇÃO: Salvar apenas IDs e dados pequenos, não objetos completos
+        // Points e Tests já estão no IndexedDB, não precisam ir para localStorage
 
-        // Save session state
-        localStorage.setItem('anchorViewCurrentUser', JSON.stringify(currentUser));
-        localStorage.setItem('anchorViewCurrentProject', JSON.stringify(currentProject));
+        // Save session state (apenas IDs)
+        if (currentUser) {
+          localStorage.setItem('anchorViewCurrentUserId', currentUser.id);
+        }
+        if (currentProject) {
+          localStorage.setItem('anchorViewCurrentProjectId', currentProject.id);
+        }
         localStorage.setItem('anchorViewShowArchived', JSON.stringify(showArchived));
         localStorage.setItem('anchorViewLastLocation', JSON.stringify(lastUsedLocation));
 
         setTimeout(() => setSyncStatus('saved'), 500);
-      } catch (error) { 
-        logger.error("Failed to save local data to localStorage", error); 
+      } catch (error) {
+        logger.error("Failed to save local data to localStorage", error);
         setSyncStatus('error');
+
+        // ✅ Se falhar, limpar localStorage para prevenir QuotaExceededError
+        try {
+          localStorage.removeItem('anchorViewPoints');
+          localStorage.removeItem('anchorViewTests');
+          localStorage.removeItem('anchorViewCurrentUser');
+          localStorage.removeItem('anchorViewCurrentProject');
+        } catch (e) {
+          // Ignore cleanup errors
+        }
       }
     }
-  }, [allPoints, allTests, currentUser, currentProject, showArchived, isLoaded, lastUsedLocation]);
+  }, [currentUser?.id, currentProject?.id, showArchived, isLoaded, lastUsedLocation]);
   
   const allPointsForProject = useMemo(() => {
     if (!currentProject) return [];

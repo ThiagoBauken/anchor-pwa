@@ -14,6 +14,7 @@ const isBuildPhase =
 
 // Track if we've already logged initialization to avoid spam
 let hasLoggedInit = false
+let hasTestedConnection = false // ✅ CORREÇÃO: Flag para prevenir teste duplicado
 
 // Modo de fallback quando o banco não está disponível
 const createPrismaClient = () => {
@@ -55,7 +56,9 @@ const createPrismaClient = () => {
     })
 
     // Test connection immediately (async IIFE) - only once
-    if (!global.prisma) {
+    // ✅ CORREÇÃO: Usar flag para evitar múltiplos testes em HMR
+    if (!global.prisma && !hasTestedConnection) {
+      hasTestedConnection = true
       ;(async () => {
         try {
           console.log('🔄 Testing database connection...')

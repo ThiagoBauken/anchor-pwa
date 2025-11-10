@@ -17,8 +17,8 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
 
   echo "⏳ Attempt $RETRY_COUNT/$MAX_RETRIES"
 
-  # Try to run migrations - this will succeed when DB is ready
-  if npx prisma migrate deploy 2>&1; then
+  # Try to run migrations using direct path to prisma binary
+  if node node_modules/.bin/prisma migrate deploy 2>&1; then
     echo ""
     echo "✅ Database migrations completed successfully!"
     break

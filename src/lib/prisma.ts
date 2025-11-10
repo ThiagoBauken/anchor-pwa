@@ -15,16 +15,32 @@ const isBuildPhase =
 // Track if we've already logged initialization to avoid spam
 let hasLoggedInit = false
 let hasTestedConnection = false // ✅ CORREÇÃO: Flag para prevenir teste duplicado
+let isCreatingClient = false // ✅ CORREÇÃO: Flag para prevenir múltiplas criações simultâneas
 
 // Modo de fallback quando o banco não está disponível
 const createPrismaClient = () => {
   try {
+    // ✅ CORREÇÃO: Prevenir múltiplas criações simultâneas (race condition)
+    if (isCreatingClient) {
+      console.log('⏭️  Prisma Client creation already in progress, waiting...')
+      return global.prisma || null
+    }
+
+    // ✅ CORREÇÃO: Se já foi criado, retornar o existente
+    if (global.prisma) {
+      return global.prisma
+    }
+
+    // Marcar que estamos criando ANTES de começar
+    isCreatingClient = true
+
     // Skip Prisma Client creation during build phase
     if (isBuildPhase) {
       if (!hasLoggedInit) {
         console.log('⏭️  Skipping Prisma Client initialization during build phase')
         hasLoggedInit = true
       }
+      isCreatingClient = false // ✅ Resetar flag
       return null
     }
 
@@ -36,6 +52,7 @@ const createPrismaClient = () => {
         console.error('Please configure DATABASE_URL in your .env file or deployment environment')
         hasLoggedInit = true
       }
+      isCreatingClient = false // ✅ Resetar flag
       return null
     }
 
@@ -98,17 +115,22 @@ const createPrismaClient = () => {
       })()
     }
 
+    // ✅ Cliente criado com sucesso - não resetar isCreatingClient aqui
+    // pois queremos manter a flag para prevenir recriações
     return client
   } catch (error: any) {
     console.error('❌ Failed to create Prisma Client:', error.message)
     console.warn('⚠️  Using localStorage fallback mode')
+    isCreatingClient = false // ✅ Resetar flag em caso de erro
     return null
   }
 }
 
 export const prisma = global.prisma || createPrismaClient()
 
-if (process.env.NODE_ENV !== 'production' && prisma) {
+// ✅ CORREÇÃO: Definir global.prisma SEMPRE (não apenas em dev)
+// para prevenir múltiplas criações do cliente
+if (prisma && !global.prisma) {
   global.prisma = prisma
 }
 

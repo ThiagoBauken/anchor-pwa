@@ -43,6 +43,11 @@
 - **Problema:** Login falhava com "The transaction has finished"
 - **Solução:** Usar mesma transação IndexedDB do início ao fim (sem await entre get e put)
 
+### 10. ✅ Sync Queue projectId Argument Error (CRÍTICO - RESOLVIDO)
+- **Problema:** Sync falhava com "Unknown argument `projectId`. Did you mean `project`?"
+- **Solução:** Converter IDs de relações (projectId, pontoId, userId) para objetos Prisma `{ connect: { id } }`
+- **Arquivo:** `src/app/actions/sync-actions.ts`
+
 ---
 
 ## ⚠️ AÇÕES NECESSÁRIAS (Usuário Precisa Fazer)
@@ -129,7 +134,7 @@
 
 ---
 
-## 🐛 Problemas Resolvidos (Total: 10)
+## 🐛 Problemas Resolvidos (Total: 11)
 
 1. ✅ **Chamadas duplicadas:** 3-5x → 1x
 2. ✅ **Loop infinito:** refreshData corrigido
@@ -141,17 +146,19 @@
 8. ✅ **QuotaExceededError:** Salvar apenas IDs no localStorage
 9. ✅ **TransactionInactiveError:** Usar mesma transação IndexedDB
 10. ✅ **dataCache em ambos contextos:** Chamadas duplicadas eliminadas
+11. ✅ **Sync Queue projectId error:** Relações convertidas para objetos Prisma connect
 
 ---
 
 ## 📝 Resumo Executivo
 
 ### O que foi feito:
-- ✅ **10 bugs críticos** corrigidos
+- ✅ **11 bugs críticos** corrigidos
 - ✅ **Performance melhorada em 75-80%**
 - ✅ **Zero chamadas duplicadas** de API
 - ✅ **Zero memory leaks**
 - ✅ **Login funcionando** sem TransactionInactiveError
+- ✅ **Sync queue funcionando** com relações Prisma corretas
 - ✅ **localStorage otimizado** - apenas IDs (não objetos grandes)
 - ✅ **Todas as funcionalidades** testadas e funcionando
 

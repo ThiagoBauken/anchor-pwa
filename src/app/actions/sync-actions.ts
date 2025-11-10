@@ -40,28 +40,54 @@ export async function syncAnchorPoints(offlinePoints: any[]) {
 
   for (const point of offlinePoints) {
     try {
-      // Remove campos do localStorage que não existem no banco
-      const { syncStatus, ...pointData } = point;
-      
+      // ✅ CORREÇÃO: Remove campos que não existem no banco e extrai IDs de relações
+      const {
+        syncStatus,
+        projectId,
+        createdById,
+        archivedById,
+        floorPlanId,
+        ...pointData
+      } = point;
+
       // Verifica se já existe (por ID local ou número do ponto)
       const existing = await prisma.anchorPoint.findFirst({
         where: {
           OR: [
             { id: point.id },
-            { 
+            {
               projectId: point.projectId,
-              numeroPonto: point.numeroPonto 
+              numeroPonto: point.numeroPonto
             }
           ]
         }
       });
+
+      // ✅ CORREÇÃO: Prepara dados com relações corretas para Prisma
+      const prismaData: any = {
+        ...pointData,
+      };
+
+      // Adiciona relações como objetos connect (apenas se existirem)
+      if (projectId) {
+        prismaData.project = { connect: { id: projectId } };
+      }
+      if (createdById) {
+        prismaData.createdBy = { connect: { id: createdById } };
+      }
+      if (archivedById) {
+        prismaData.archivedBy = { connect: { id: archivedById } };
+      }
+      if (floorPlanId) {
+        prismaData.floorPlan = { connect: { id: floorPlanId } };
+      }
 
       if (existing) {
         // Atualiza se já existe
         await prisma.anchorPoint.update({
           where: { id: existing.id },
           data: {
-            ...pointData,
+            ...prismaData,
             id: existing.id // Mantém o ID do servidor
           }
         });
@@ -69,12 +95,12 @@ export async function syncAnchorPoints(offlinePoints: any[]) {
         // Cria novo se não existe
         await prisma.anchorPoint.create({
           data: {
-            ...pointData,
+            ...prismaData,
             id: point.id || undefined // Usa o ID local ou deixa o banco gerar
           }
         });
       }
-      
+
       results.synced++;
     } catch (error) {
       results.failed++;
@@ -122,27 +148,50 @@ export async function syncAnchorTests(offlineTests: any[]) {
 
   for (const test of offlineTests) {
     try {
-      const { syncStatus, ...testData } = test;
-      
+      // ✅ CORREÇÃO: Remove campos que não existem no banco e extrai IDs de relações
+      const {
+        syncStatus,
+        pontoId,
+        userId,
+        supervisorId,
+        ...testData
+      } = test;
+
       // Verifica se o teste já existe
       const existing = await prisma.anchorTest.findFirst({
         where: { id: test.id }
       });
 
+      // ✅ CORREÇÃO: Prepara dados com relações corretas para Prisma
+      const prismaData: any = {
+        ...testData,
+      };
+
+      // Adiciona relações como objetos connect (apenas se existirem)
+      if (pontoId) {
+        prismaData.ponto = { connect: { id: pontoId } };
+      }
+      if (userId) {
+        prismaData.user = { connect: { id: userId } };
+      }
+      if (supervisorId) {
+        prismaData.supervisor = { connect: { id: supervisorId } };
+      }
+
       if (existing) {
         await prisma.anchorTest.update({
           where: { id: existing.id },
-          data: testData
+          data: prismaData
         });
       } else {
         await prisma.anchorTest.create({
           data: {
-            ...testData,
+            ...prismaData,
             id: test.id || undefined
           }
         });
       }
-      
+
       results.synced++;
     } catch (error) {
       results.failed++;

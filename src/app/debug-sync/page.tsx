@@ -80,7 +80,7 @@ export default function DebugSyncPage() {
   }
 
   const clearAllPending = async () => {
-    if (!confirm('⚠️ Tem certeza? Isso vai DELETAR todos os 54 itens pendentes!')) return
+    if (!confirm('⚠️ Tem certeza? Isso vai DELETAR todos os itens pendentes!')) return
 
     try {
       const { offlineDB } = await import('@/lib/indexeddb')
@@ -103,6 +103,27 @@ export default function DebugSyncPage() {
       toast({
         title: '❌ Erro',
         description: 'Falha ao limpar fila',
+        variant: 'destructive'
+      })
+    }
+  }
+
+  const cleanInvalidOperations = async () => {
+    try {
+      const { offlineDB } = await import('@/lib/indexeddb')
+      const removedCount = await offlineDB.cleanInvalidSyncOperations()
+
+      toast({
+        title: '✅ Limpeza concluída!',
+        description: `${removedCount} operações inválidas (companies, users) foram removidas`
+      })
+
+      loadSyncQueue()
+    } catch (error) {
+      console.error('Erro ao limpar operações inválidas:', error)
+      toast({
+        title: '❌ Erro',
+        description: 'Falha ao limpar operações inválidas',
         variant: 'destructive'
       })
     }
@@ -167,10 +188,13 @@ export default function DebugSyncPage() {
             </div>
           </div>
 
-          <div className="mt-4 flex gap-2">
+          <div className="mt-4 flex gap-2 flex-wrap">
             <Button onClick={loadSyncQueue} variant="outline">
               <RefreshCw className="mr-2 h-4 w-4" />
               Recarregar
+            </Button>
+            <Button onClick={cleanInvalidOperations} variant="secondary">
+              🧹 Limpar Operações Inválidas
             </Button>
             <Button onClick={clearAllPending} variant="destructive">
               <Trash2 className="mr-2 h-4 w-4" />

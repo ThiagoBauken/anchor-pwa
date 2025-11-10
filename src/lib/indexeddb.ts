@@ -12,10 +12,13 @@ interface DBSchema {
   files: FileRecord
 }
 
+// Apenas essas tabelas podem ser sincronizadas via sync queue
+type SyncableTable = 'anchor_points' | 'anchor_tests' | 'projects' | 'locations'
+
 interface SyncOperation {
   id: string
   operation: 'create' | 'update' | 'delete'
-  table: keyof Omit<DBSchema, 'sync_queue' | 'files'>
+  table: SyncableTable  // CORREÇÃO: Apenas tabelas sincronizáveis
   data: any
   timestamp: number
   retries: number
@@ -431,9 +434,9 @@ class OfflineDB {
   // Get database stats
   async getStats(): Promise<Record<string, number>> {
     const stats: Record<string, number> = {}
-    
+
     const storeNames: (keyof DBSchema)[] = [
-      'companies', 'users', 'projects', 'locations', 
+      'companies', 'users', 'projects', 'locations',
       'anchor_points', 'anchor_tests', 'sync_queue', 'files'
     ]
 
@@ -443,6 +446,30 @@ class OfflineDB {
     }
 
     return stats
+  }
+
+  // Clean invalid operations from sync queue
+  async cleanInvalidSyncOperations(): Promise<number> {
+    const validTables: SyncableTable[] = ['anchor_points', 'anchor_tests', 'projects', 'locations']
+    const queue = await this.getAll('sync_queue')
+
+    let removedCount = 0
+    for (const operation of queue) {
+      // Remove se a tabela não está na lista de tabelas válidas
+      if (!validTables.includes(operation.table as SyncableTable)) {
+        await this.delete('sync_queue', operation.id, false)
+        removedCount++
+        if (typeof console !== 'undefined') {
+          console.log(`🗑️ Removed invalid sync operation: ${operation.table} - ${operation.id}`)
+        }
+      }
+    }
+
+    if (typeof console !== 'undefined' && removedCount > 0) {
+      console.log(`✅ Cleaned ${removedCount} invalid operations from sync queue`)
+    }
+
+    return removedCount
   }
 }
 

@@ -49,6 +49,7 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 # Copy Prisma CLI and required node_modules for migrations
 COPY --from=deps /app/node_modules/prisma ./node_modules/prisma
 COPY --from=deps /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=deps /app/node_modules/.bin ./node_modules/.bin
 
 # Copy entrypoint script for database migrations
 COPY docker-entrypoint.sh ./

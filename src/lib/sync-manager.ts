@@ -67,6 +67,9 @@ class SyncManager {
 
   // ✅ CRITICAL FIX: Clean invalid operations from sync queue
   private async cleanInvalidOperations() {
+    // Skip if not in browser environment (IndexedDB only exists in browser)
+    if (typeof window === 'undefined') return
+
     try {
       const removedCount = await offlineDB.cleanInvalidSyncOperations()
       if (removedCount > 0) {

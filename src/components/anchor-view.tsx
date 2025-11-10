@@ -32,6 +32,7 @@ import { ProjectInvitationsPopover } from "./project-invitations-popover";
 import { SyncStatusIndicator } from "./sync-status-indicator";
 import { TrialBanner } from "./trial-banner";
 import { TrialExpiredOverlay } from "./trial-expired-overlay";
+import { ForceSwUpdateButton } from "./force-sw-update-button";
 
 function UserProfile() {
   const { user: currentUser, logout } = useUnifiedAuthSafe();
@@ -59,6 +60,7 @@ function UserProfile() {
       </div>
       <div className="flex items-center gap-2">
         <ThemeToggle />
+        <ForceSwUpdateButton />
         {isSuperAdmin && (
           <Button variant="ghost" size="icon" onClick={handleAdminDashboard} title="Dashboard Admin">
             <Shield className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />

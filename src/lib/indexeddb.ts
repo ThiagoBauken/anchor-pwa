@@ -21,6 +21,7 @@ interface SyncOperation {
   table: SyncableTable  // CORREÇÃO: Apenas tabelas sincronizáveis
   data: any
   timestamp: number
+  createdAt: string  // ISO date string for UI display
   retries: number
   status: 'pending' | 'syncing' | 'synced' | 'failed'
 }
@@ -213,12 +214,14 @@ class OfflineDB {
     table: SyncOperation['table'],
     data: any
   ): Promise<void> {
+    const now = Date.now()
     const syncOperation: SyncOperation = {
-      id: `${table}_${operation}_${data.id || Date.now()}`,
+      id: `${table}_${operation}_${data.id || now}`,
       operation,
       table,
       data,
-      timestamp: Date.now(),
+      timestamp: now,
+      createdAt: new Date(now).toISOString(),  // Add ISO string for UI
       retries: 0,
       status: 'pending'
     }
@@ -454,6 +457,8 @@ class OfflineDB {
     const queue = await this.getAll('sync_queue')
 
     let removedCount = 0
+    let fixedCount = 0
+
     for (const operation of queue) {
       // Remove se a tabela não está na lista de tabelas válidas
       if (!validTables.includes(operation.table as SyncableTable)) {
@@ -463,10 +468,27 @@ class OfflineDB {
           console.log(`🗑️ Removed invalid sync operation: ${operation.table} - ${operation.id}`)
         }
       }
+      // Fix operations missing createdAt field
+      else if (!operation.createdAt && operation.timestamp) {
+        const fixedOp = {
+          ...operation,
+          createdAt: new Date(operation.timestamp).toISOString()
+        }
+        await this.put('sync_queue', fixedOp, false)
+        fixedCount++
+        if (typeof console !== 'undefined') {
+          console.log(`🔧 Fixed sync operation missing createdAt: ${operation.id}`)
+        }
+      }
     }
 
-    if (typeof console !== 'undefined' && removedCount > 0) {
-      console.log(`✅ Cleaned ${removedCount} invalid operations from sync queue`)
+    if (typeof console !== 'undefined') {
+      if (removedCount > 0) {
+        console.log(`✅ Cleaned ${removedCount} invalid operations from sync queue`)
+      }
+      if (fixedCount > 0) {
+        console.log(`✅ Fixed ${fixedCount} operations missing createdAt field`)
+      }
     }
 
     return removedCount

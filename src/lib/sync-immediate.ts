@@ -50,9 +50,13 @@ class ImmediateSyncManager {
 
       if (point.offlineCreated) {
         // É um ponto novo criado offline
-        await addAnchorPoint(prismaData, point.createdByUserId)
+        // Remove campos que addAnchorPoint espera que sejam omitidos
+        const { id, dataHora, status, createdByUserId, lastModifiedByUserId, archived, ...pointDataWithoutOmitted } = prismaData
+
+        // addAnchorPoint aceita 1 parâmetro obrigatório e usa user autenticado internamente
+        await addAnchorPoint(pointDataWithoutOmitted)
       } else {
-        // É um update
+        // É um update - updateAnchorPoint aceita Partial<AnchorPoint>, então OK
         await updateAnchorPoint(point.id, prismaData)
       }
 
@@ -87,7 +91,12 @@ class ImmediateSyncManager {
       const { DataAdapter } = await import('./type-adapters')
 
       const prismaData = DataAdapter.anchorTestLocalStorageToPrisma(test)
-      await addAnchorTest(prismaData, test.createdByUserId)
+
+      // Remove id e dataHora, pois addAnchorTest espera Omit<AnchorTest, 'id' | 'dataHora'>
+      const { id, dataHora, ...testDataWithoutIdAndDate } = prismaData
+
+      // addAnchorTest só aceita 1 parâmetro e usa user autenticado internamente
+      await addAnchorTest(testDataWithoutIdAndDate)
 
       // Salva local SEM flag de needsSync
       this.saveTestLocally(test, false)

@@ -120,8 +120,19 @@ class SyncManager {
 
     try {
       // Get pending operations from IndexedDB
-      const operations = await offlineDB.getSyncQueue()
-      console.log(`📤 Found ${operations.length} pending operations`)
+      const allOperations = await offlineDB.getSyncQueue()
+      console.log(`📤 Found ${allOperations.length} total operations`)
+
+      // FILTER OUT invalid tables (companies, users)
+      const validTables = ['anchor_points', 'anchor_tests', 'projects', 'locations']
+      const operations = allOperations.filter(op => {
+        const isValid = validTables.includes(op.table)
+        if (!isValid) {
+          console.error(`❌ Skipping invalid table operation: ${op.table}_${op.operation}_${op.data?.id}`)
+        }
+        return isValid
+      })
+      console.log(`✅ Filtered to ${operations.length} valid operations (removed ${allOperations.length - operations.length} invalid)`)
 
       if (operations.length === 0) {
         // No pending operations, but still check for server updates

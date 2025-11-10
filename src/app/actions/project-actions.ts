@@ -296,6 +296,18 @@ export async function deleteProject(id: string): Promise<boolean> {
       console.warn('[WARN] Failed to clean IndexedDB/sync queue (not critical):', dbError);
     }
 
+    // 4. LIMPA CACHE (força recarregar dados atualizados)
+    try {
+      const { dataCache } = await import('@/lib/data-cache');
+      const project = await prisma.project.findUnique({ where: { id }, select: { companyId: true } });
+      if (project) {
+        dataCache.clear(`projects_${project.companyId}`);
+        console.log('[DEBUG] ✅ Cache cleared for projects');
+      }
+    } catch (cacheError) {
+      console.warn('[WARN] Failed to clear cache (not critical):', cacheError);
+    }
+
     return true;
   } catch (error) {
     console.error(`Failed to delete project ${id}, trying localStorage fallback:`, error);

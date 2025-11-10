@@ -25,10 +25,12 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
+.env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+.env.backup
 
 # vercel
 .vercel
@@ -37,3 +39,13 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 nul
+
+# database scripts (temporary/debug)
+test-db-connection.js
+check-db-state.js
+reset-database.js
+verify-tables.js
+
+# backups
+/backups
+*.backup

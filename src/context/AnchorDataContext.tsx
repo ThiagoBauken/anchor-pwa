@@ -436,57 +436,71 @@ export const AnchorDataProvider = ({ children }: { children: ReactNode }) => {
   
   const deleteProject = useCallback(async (id: string) => {
     logger.log('[DEBUG] deleteProject called:', { id });
+
+    // ✅ CORREÇÃO CRÍTICA: Limpar cache ANTES de deletar para prevenir projetos voltando
+    if (typeof window !== 'undefined') {
+      try {
+        const { dataCache } = await import('@/lib/data-cache');
+        if (companyId) {
+          dataCache.clear(`projects_${companyId}`);
+          logger.log('[DEBUG] Cache cleared BEFORE delete');
+        }
+      } catch (e) {
+        logger.warn('Failed to clear cache:', e);
+      }
+    }
+
     try {
       const { deleteProject: deleteProjectAction } = await import('@/app/actions/project-actions');
       const success = await deleteProjectAction(id);
-    if(success) {
-        const remainingProjects = projects.filter(p => p.id !== id);
-        setProjects(remainingProjects);
-        if (currentProject?.id === id) {
-            setCurrentProject(remainingProjects.length > 0 ? remainingProjects[0] : null);
-            localStorage.removeItem('anchorViewCurrentProject');
+
+      // ✅ SEMPRE remover do estado e localStorage, MESMO se server delete falhar
+      const remainingProjects = projects.filter(p => p.id !== id);
+      setProjects(remainingProjects);
+      if (currentProject?.id === id) {
+          setCurrentProject(remainingProjects.length > 0 ? remainingProjects[0] : null);
+          localStorage.removeItem('anchorViewCurrentProject');
+      }
+
+      // IMPORTANT: Also remove from localStorage to prevent reappearing
+      if (typeof window !== 'undefined') {
+        try {
+          // Marcar como deleted no formato antigo
+          const storedProjects = JSON.parse(localStorage.getItem('anchor-projects') || '[]');
+          const updatedProjects = storedProjects.map((p: any) =>
+            p.id === id ? { ...p, deleted: true } : p
+          );
+          localStorage.setItem('anchor-projects', JSON.stringify(updatedProjects));
+
+          // Também marcar no formato novo
+          const newFormatProjects = JSON.parse(localStorage.getItem('anchorViewProjects') || '[]');
+          const updatedNewFormat = newFormatProjects.map((p: any) =>
+            p.id === id ? { ...p, deleted: true } : p
+          );
+          localStorage.setItem('anchorViewProjects', JSON.stringify(updatedNewFormat));
+
+          logger.log('[DEBUG] Project marked as deleted in localStorage');
+        } catch (e) {
+          logger.warn('Failed to update localStorage:', e);
         }
+      }
 
-        // IMPORTANT: Also remove from localStorage to prevent reappearing
-        if (typeof window !== 'undefined') {
-          try {
-            // Marcar como deleted no formato antigo
-            const storedProjects = JSON.parse(localStorage.getItem('anchor-projects') || '[]');
-            const updatedProjects = storedProjects.map((p: any) =>
-              p.id === id ? { ...p, deleted: true } : p
-            );
-            localStorage.setItem('anchor-projects', JSON.stringify(updatedProjects));
-
-            // Também marcar no formato novo
-            const newFormatProjects = JSON.parse(localStorage.getItem('anchorViewProjects') || '[]');
-            const updatedNewFormat = newFormatProjects.map((p: any) =>
-              p.id === id ? { ...p, deleted: true } : p
-            );
-            localStorage.setItem('anchorViewProjects', JSON.stringify(updatedNewFormat));
-
-            logger.log('[DEBUG] Project marked as deleted in localStorage');
-          } catch (e) {
-            logger.warn('Failed to update localStorage:', e);
-          }
-
-          // ✅ CORREÇÃO: Limpar cache para forçar reload na próxima vez
-          try {
-            const { dataCache } = await import('@/lib/data-cache');
-            if (companyId) {
-              dataCache.clear(`projects_${companyId}`);
-              logger.log('[DEBUG] Cache cleared for projects after delete');
-            }
-          } catch (e) {
-            logger.warn('Failed to clear cache:', e);
-          }
-        }
-
-        logger.log('[DEBUG] Project deleted successfully');
-    }
+      if (success) {
+        logger.log('[DEBUG] Project deleted successfully on server');
+      } else {
+        logger.warn('[WARN] Project deleted locally but server delete failed');
+      }
     } catch (error) {
       logger.error('[ERROR] deleteProject failed:', error);
+
+      // ✅ MESMO com erro, remover localmente
+      const remainingProjects = projects.filter(p => p.id !== id);
+      setProjects(remainingProjects);
+      if (currentProject?.id === id) {
+          setCurrentProject(remainingProjects.length > 0 ? remainingProjects[0] : null);
+      }
     }
-  }, [projects, currentProject]);
+  }, [projects, currentProject, companyId]);
 
   const addPoint = useCallback((pointData: Omit<AnchorPoint, 'id' | 'dataHora' | 'status' | 'createdByUserId' | 'lastModifiedByUserId' | 'archived'>) => {
     logger.log('[DEBUG] addPoint called:', { pointData, currentUser: currentUser?.id });

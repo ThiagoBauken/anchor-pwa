@@ -1,0 +1,100 @@
+# =============================================
+# EASYPANEL ENVIRONMENT VARIABLES - CORRIGIDO
+# =============================================
+#
+# COPIE E COLE ESTAS VARIÁVEIS NO EASYPANEL
+#
+# ⚠️ CRITICAL: Mudanças em VERMELHO precisam ser aplicadas!
+#
+# 📌 IMPORTANTE - CONFIGURAÇÃO DE PORTA:
+# - O container roda na porta 9002 (definido no Dockerfile)
+# - No Easypanel, configure o mapeamento de porta: 9002 → 80
+# - A URL pública usa porta padrão HTTPS (443), então não precisa especificar porta
+# - NEXTAUTH_URL deve ser https://anchorpwa.easypanel.host (SEM :porta)
+# =============================================
+
+# DATABASE CONFIGURATION
+DATABASE_URL=postgres://privado:privado12!@private_alpdb:5432/privado?sslmode=disable
+POSTGRES_USER=privado
+POSTGRES_PASSWORD=privado12!
+POSTGRES_DB=privado
+POSTGRES_HOST_EXTERNAL=185.215.165.19
+POSTGRES_PORT_EXTERNAL=8002
+POSTGRES_HOST_INTERNAL=private_alpdb
+POSTGRES_PORT_INTERNAL=5432
+
+# GEMINI AI
+GEMINI_API_KEY=
+
+# NEXT.JS CONFIGURATION
+NEXT_PUBLIC_APP_URL=https://anchorpwa.easypanel.host
+NODE_ENV=production
+NEXT_TELEMETRY_DISABLED=1
+
+# =============================================
+# ⚠️⚠️⚠️ CRITICAL FIX - DEVE SER HTTPS! ⚠️⚠️⚠️
+# =============================================
+# ANTES (ERRADO):
+# NEXTAUTH_URL=http://localhost:9002
+#
+# DEPOIS (CORRETO):
+NEXTAUTH_URL=https://anchorpwa.easypanel.host
+# =============================================
+
+NEXTAUTH_SECRET=57be0e68ee112d72ca3f1ee5b69f9937ce79ae11c48b44768cda3c15fd5016e9
+
+# GOOGLE OAUTH
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+
+# JWT & SESSION
+JWT_SECRET=anchorview-super-secret-jwt-key-change-in-production-2025
+SESSION_SECRET=anchorview-super-secret-session-key-2025-change-this
+
+# MERCADO PAGO
+MERCADO_PAGO_ACCESS_TOKEN=TEST-123456789-123456-abc123def456-abc123def456
+MERCADO_PAGO_PUBLIC_KEY=TEST-abc123def456-123456-abc123def456
+MERCADO_PAGO_WEBHOOK_SECRET=your-webhook-secret
+MERCADO_PAGO_NOTIFICATION_URL=https://anchorpwa.easypanel.host/api/webhooks/mercadopago
+
+# EMAIL SMTP
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=
+SMTP_PASSWORD=
+SMTP_FROM="AnchorView <noreply@anchorview.com>"
+
+# PWA & STORAGE
+MAX_FILE_SIZE_MB=50
+UPLOAD_DIR=./uploads
+NEXT_PUBLIC_PWA_ENABLED=true
+
+# BACKUP
+BACKUP_ENABLED=true
+BACKUP_PATH=./backups
+BACKUP_RETENTION_DAYS=30
+
+# DEBUG
+DEBUG=false
+
+# =============================================
+# RESUMO DAS MUDANÇAS CRÍTICAS:
+# =============================================
+#
+# 1. NEXTAUTH_URL
+#    DE: http://localhost:9002
+#    PARA: https://anchorpwa.easypanel.host
+#    MOTIVO: Cookies HTTPS não funcionam com URL HTTP!
+#
+# 2. NEXT_PUBLIC_APP_URL
+#    DE: http://localhost:9002
+#    PARA: https://anchorpwa.easypanel.host
+#    MOTIVO: URL pública deve apontar para produção
+#
+# 3. MERCADO_PAGO_NOTIFICATION_URL
+#    DE: https://yourdomain.com/api/webhooks/mercadopago
+#    PARA: https://anchorpwa.easypanel.host/api/webhooks/mercadopago
+#    MOTIVO: Webhooks devem apontar para seu domínio real
+#
+# =============================================

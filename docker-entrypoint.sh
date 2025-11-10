@@ -12,6 +12,16 @@ RETRY_COUNT=0
 echo "🔄 Waiting for PostgreSQL and running migrations..."
 echo ""
 
+# First, try to resolve any failed migrations
+echo "🔍 Checking for failed migrations..."
+if ./node_modules/.bin/prisma migrate resolve --rolled-back 20250111000001_add_missing_indexes 2>&1; then
+  echo "✅ Resolved failed migration"
+else
+  echo "ℹ️  No failed migrations to resolve (or migration doesn't exist)"
+fi
+
+echo ""
+
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
   RETRY_COUNT=$((RETRY_COUNT + 1))
 
@@ -23,6 +33,12 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
     echo "✅ Database migrations completed successfully!"
     break
   else
+    # Check if it's the P3009 error (failed migration)
+    if echo "$?" | grep -q "P3009"; then
+      echo "⚠️  Found failed migration, attempting to resolve..."
+      ./node_modules/.bin/prisma migrate resolve --rolled-back 20250111000001_add_missing_indexes 2>&1 || true
+    fi
+
     if [ $RETRY_COUNT -ge $MAX_RETRIES ]; then
       echo ""
       echo "❌ Failed to connect after $MAX_RETRIES attempts"

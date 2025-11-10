@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Smartphone, Download, Wifi, WifiOff, RotateCw } from "lucide-react";
+import { Smartphone, Download, Wifi, WifiOff, RotateCw, X } from "lucide-react";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
@@ -17,6 +17,7 @@ export function PwaInstaller() {
   const [isInstalled, setIsInstalled] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'completed'>('idle');
+  const [isDismissed, setIsDismissed] = useState(false);
 
   useEffect(() => {
     // Registrar Service Worker
@@ -113,6 +114,12 @@ export function PwaInstaller() {
       setIsInstalled(true);
     }
 
+    // ✅ Verificar se usuário já dispensou a mensagem
+    const dismissed = localStorage.getItem('pwa-install-dismissed')
+    if (dismissed === 'true') {
+      setIsDismissed(true)
+    }
+
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', handleAppInstalled);
@@ -144,8 +151,14 @@ export function PwaInstaller() {
     }
   };
 
-  // Só mostrar se for instalável e não estiver instalado
-  if (!isInstallable || isInstalled) {
+  // ✅ Função para dispensar/fechar a mensagem
+  const handleDismiss = () => {
+    localStorage.setItem('pwa-install-dismissed', 'true')
+    setIsDismissed(true)
+  }
+
+  // Só mostrar se for instalável, não estiver instalado E não foi dispensado
+  if (!isInstallable || isInstalled || isDismissed) {
     return (
       <div className="fixed bottom-4 right-4 z-50">
         {/* Status de sincronização */}
@@ -187,13 +200,26 @@ export function PwaInstaller() {
     <div className="fixed bottom-4 right-4 z-50">
       <Card className="w-80 border-violet-200 bg-gradient-to-br from-violet-50 to-violet-100">
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-violet-900">
-            <Smartphone className="h-5 w-5" />
-            Instalar AnchorView
-          </CardTitle>
-          <CardDescription className="text-violet-700">
-            Instale como aplicativo para uso offline completo
-          </CardDescription>
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <CardTitle className="flex items-center gap-2 text-violet-900">
+                <Smartphone className="h-5 w-5" />
+                Instalar AnchorView
+              </CardTitle>
+              <CardDescription className="text-violet-700">
+                Instale como aplicativo para uso offline completo
+              </CardDescription>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleDismiss}
+              className="h-6 w-6 text-violet-500 hover:text-violet-700 hover:bg-violet-100 -mt-1"
+              aria-label="Fechar"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="space-y-2 text-sm text-violet-800">

@@ -243,6 +243,27 @@ export function OfflineDataProvider({ children }: { children: ReactNode }) {
         setFloorPlans(convertedFloorPlans)
         logger.log('✅ Floor plans loaded:', convertedFloorPlans.length)
 
+        // ✅ FALLBACK: Se não há FloorPlans mas projeto tem floorPlanImages (projeto antigo)
+        if (convertedFloorPlans.length === 0 && currentProject.floorPlanImages && currentProject.floorPlanImages.length > 0) {
+          logger.log(`📐 Project has ${currentProject.floorPlanImages.length} legacy floorPlanImages, creating FloorPlans...`)
+
+          const legacyFloorPlans: FloorPlan[] = currentProject.floorPlanImages.map((img, index) => ({
+            id: `legacy-${currentProject.id}-${index}`,
+            projectId: currentProject.id,
+            name: `Planta ${index + 1}`,
+            image: img,
+            order: index,
+            active: true,
+            createdAt: currentProject.createdAt,
+            updatedAt: currentProject.updatedAt,
+            anchorPoints: []
+          }))
+
+          setFloorPlans(legacyFloorPlans)
+          setCurrentFloorPlan(legacyFloorPlans[0])
+          logger.log(`✅ Created ${legacyFloorPlans.length} legacy floor plans as fallback`)
+        }
+
         // Try to restore previously selected floor plan from localStorage
         let floorPlanToRestore: FloorPlan | null = null
         try {
@@ -585,6 +606,55 @@ export function OfflineDataProvider({ children }: { children: ReactNode }) {
 
         // Update local state
         setProjects(prev => [...prev, projectForApp])
+
+        // ✅ CORREÇÃO: Criar FloorPlans para cada imagem em floorPlanImages
+        if (projectData.floorPlanImages && projectData.floorPlanImages.length > 0) {
+          logger.log(`📐 Creating ${projectData.floorPlanImages.length} floor plans for project...`)
+
+          try {
+            const { createFloorPlan: createFloorPlanAction } = await import('@/app/actions/floorplan-actions')
+            const createdFloorPlans: FloorPlan[] = []
+
+            for (let i = 0; i < projectData.floorPlanImages.length; i++) {
+              const image = projectData.floorPlanImages[i]
+              try {
+                const newFloorPlan = await createFloorPlanAction(
+                  savedProject.id,
+                  `Planta ${i + 1}`,
+                  image,
+                  i
+                )
+
+                if (newFloorPlan) {
+                  const convertedFloorPlan: FloorPlan = {
+                    id: newFloorPlan.id,
+                    projectId: newFloorPlan.projectId,
+                    name: newFloorPlan.name,
+                    image: newFloorPlan.image,
+                    order: newFloorPlan.order,
+                    active: newFloorPlan.active,
+                    createdAt: new Date(newFloorPlan.createdAt).toISOString(),
+                    updatedAt: new Date(newFloorPlan.updatedAt).toISOString(),
+                    anchorPoints: []
+                  }
+                  createdFloorPlans.push(convertedFloorPlan)
+                  logger.log(`✅ Created floor plan ${i + 1}/${projectData.floorPlanImages.length}`)
+                }
+              } catch (error) {
+                logger.warn(`⚠️  Failed to create floor plan ${i + 1}:`, error)
+              }
+            }
+
+            // Atualizar estado com as plantas criadas
+            if (createdFloorPlans.length > 0) {
+              setFloorPlans(createdFloorPlans)
+              setCurrentFloorPlan(createdFloorPlans[0])
+              logger.log(`✅ Created ${createdFloorPlans.length} floor plans and auto-selected first one`)
+            }
+          } catch (error) {
+            logger.error('❌ Failed to import floor plan actions:', error)
+          }
+        }
 
         return projectForApp
       }

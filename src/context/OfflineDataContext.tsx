@@ -431,24 +431,20 @@ export function OfflineDataProvider({ children }: { children: ReactNode }) {
         }))
       }
 
-      // Load other data in parallel
+      // Load other data in parallel (exceto points, que dependem do projeto selecionado)
       const [
         loadedUsers,
-        loadedLocations,
-        loadedPoints,
-        loadedTests
+        loadedLocations
       ] = await Promise.all([
         offlineDB.getUsersByCompany(currentCompany.id),
-        offlineDB.getLocationsByCompany(currentCompany.id),
-        currentProject ? offlineDB.getPointsByProject(currentProject.id) : offlineDB.getAll('anchor_points'),
-        offlineDB.getAll('anchor_tests')
+        offlineDB.getLocationsByCompany(currentCompany.id)
       ])
 
       setUsers(loadedUsers)
       setProjects(loadedProjects)
       setLocations(loadedLocations)
-      setPoints(loadedPoints)
-      setTests(loadedTests)
+
+      // Points e tests serão carregados pelo useEffect específico quando projeto for selecionado
 
       // Floor plans will be loaded by the useEffect that watches currentProject
 
@@ -474,7 +470,7 @@ export function OfflineDataProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      logger.log(`✅ Data loaded: ${loadedUsers.length} users, ${loadedProjects.length} projects, ${loadedPoints.length} points`)
+      logger.log(`✅ Data loaded: ${loadedUsers.length} users, ${loadedProjects.length} projects, ${loadedLocations.length} locations`)
 
       // Try to sync in background
       // syncNow() // TODO: Implement sync functionality
@@ -484,7 +480,7 @@ export function OfflineDataProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false)
     }
-  }, [currentCompany, currentUser, currentProject])
+  }, [currentCompany, currentUser]) // ✅ CORREÇÃO: Removido currentProject para prevenir loop infinito
 
   // Load data when authentication changes
   useEffect(() => {

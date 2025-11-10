@@ -192,6 +192,11 @@ class OfflineDB {
   ): Promise<void> {
     const store = await this.getStore(storeName, 'readwrite')
 
+    // ✅ CORREÇÃO: Determinar se é create ou update verificando se item existe
+    const key = (data as any).id
+    const existingItem = key ? await this.get(storeName, key) : null
+    const operation = existingItem ? 'update' : 'create'
+
     // CORREÇÃO: Só adiciona à fila se OFFLINE
     const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true
     const shouldQueue = addToSyncQueue && !isOnline && storeName !== 'sync_queue'
@@ -206,12 +211,13 @@ class OfflineDB {
       request.onsuccess = async () => {
         // IMPORTANTE: Só adiciona à fila se OFFLINE
         if (shouldQueue) {
-          await this.addToSyncQueue('create', storeName as any, data)
+          // ✅ CORREÇÃO: Usar operation correto (create ou update)
+          await this.addToSyncQueue(operation, storeName as any, data)
           if (typeof console !== 'undefined') {
-            console.log(`📱 OFFLINE: Item adicionado à fila - ${storeName}`)
+            console.log(`📱 OFFLINE: ${operation} adicionado à fila - ${storeName}`)
           }
         } else if (isOnline && typeof console !== 'undefined') {
-          console.log(`🌐 ONLINE: Item NÃO vai pra fila - ${storeName}`)
+          console.log(`🌐 ONLINE: ${operation} NÃO vai pra fila - ${storeName}`)
         }
         resolve()
       }

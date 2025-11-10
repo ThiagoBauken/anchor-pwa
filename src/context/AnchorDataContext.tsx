@@ -100,6 +100,7 @@ export const AnchorDataProvider = ({ children }: { children: ReactNode }) => {
   // Initial data loading from DB and localStorage
   useEffect(() => {
     let hasStartedLoad = false;
+    let isCancelled = false; // ✅ CORREÇÃO: Adicionar flag de cancelamento para prevenir race condition
 
     async function loadInitialData() {
         try {
@@ -109,6 +110,9 @@ export const AnchorDataProvider = ({ children }: { children: ReactNode }) => {
               console.log('🚀 [LOAD] Starting data load...')
               hasStartedLoad = true
             }
+
+            // ✅ CORREÇÃO: Check if cancelled antes de cada operação async
+            if (isCancelled) return;
 
             // Use authenticated user from DatabaseAuthContext
             // Fallback to localStorage only if not authenticated yet
@@ -142,6 +146,9 @@ export const AnchorDataProvider = ({ children }: { children: ReactNode }) => {
                     ]);
                     console.timeEnd('⏱️ [DB] Database queries')
                     console.log(`✅ [DB] Loaded: ${dbUsers.length} users, ${dbProjects.length} projects, ${dbLocations.length} locations`)
+
+                    // ✅ CORREÇÃO: Check if cancelled após operação async
+                    if (isCancelled) return;
 
                     setUsers(dbUsers as any);
                     setProjects(dbProjects as any);
@@ -283,8 +290,18 @@ export const AnchorDataProvider = ({ children }: { children: ReactNode }) => {
     
     loadInitialData().catch(e => {
         logger.error("Failed to load initial data", e);
-        setSyncStatus('error');
+        if (!isCancelled) {
+          setSyncStatus('error');
+        }
     });
+
+    // ✅ CORREÇÃO: Cleanup function para cancelar operações pendentes
+    return () => {
+      isCancelled = true;
+      if (hasStartedLoad) {
+        console.log('🛑 [LOAD] Cancelled due to component unmount or dependency change');
+      }
+    };
   }, [authUser, authCompany]); // Re-run when authentication changes
 
   // Sync state to localStorage

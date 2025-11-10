@@ -62,7 +62,8 @@
       "Bash(git add:*)",
       "Bash(git commit -m \"$(cat <<''EOF''\nfix: Regenera package-lock.json para corrigir build no EasyPanel\n\nResolve erro:\n- Missing: preact@10.11.3 from lock file\n- npm ci failing devido a package.json e package-lock.json fora de sincronia\n\nRodado npm install para sincronizar lock file com package.json.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
       "Bash(git push:*)",
-      "Bash(git remote add:*)"
+      "Bash(git remote add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nfix: Corrige falha no cache do Service Worker que causava carregamento lento\n\nResolve erros:\n- \"Failed to execute 'addAll' on 'Cache': Request failed\"\n- \"A listener indicated an asynchronous response by returning true, but the message channel closed\"\n\nMudanças:\n1. Remove arquivos _next específicos de build do STATIC_FILES\n   - Esses arquivos são build-specific e podem não existir\n   - Serão cacheados dinamicamente na primeira requisição\n2. Substitui cache.addAll() por cache.add() individual com try-catch\n   - Evita falha total se um arquivo não existir\n   - Permite instalação parcial do Service Worker\n\nArquivos mantidos no cache estático:\n- / (página principal)\n- /offline (fallback offline)\n- /manifest.json (PWA manifest)\n- /icon-192.png e /icon-512.png (ícones PWA)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
     ],
     "defaultMode": "acceptEdits",
     "additionalDirectories": [

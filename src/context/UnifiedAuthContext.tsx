@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { registerUser, loginUser, logoutUser, getCurrentUser } from '@/app/actions/auth'
 import { offlineDB } from '@/lib/indexeddb'
@@ -192,16 +192,9 @@ export function UnifiedAuthProvider({ children }: { children: ReactNode }) {
   }
 
   /**
-   * Setup network event listeners for online/offline detection
+   * ✅ CORREÇÃO: Wrap handlers in useCallback para stable references e prevenir memory leak
    */
-  const setupNetworkListeners = () => {
-    if (typeof window === 'undefined') return
-
-    window.addEventListener('online', handleOnline)
-    window.addEventListener('offline', handleOffline)
-  }
-
-  const handleOnline = () => {
+  const handleOnline = useCallback(() => {
     setIsOnline(true)
     logger.log('📶 Back online')
 
@@ -209,12 +202,22 @@ export function UnifiedAuthProvider({ children }: { children: ReactNode }) {
     if (user) {
       setTimeout(() => syncNow(), 1000)
     }
-  }
+  }, [user]) // Dependency: user para trigger sync
 
-  const handleOffline = () => {
+  const handleOffline = useCallback(() => {
     setIsOnline(false)
     logger.log('📴 Gone offline')
-  }
+  }, [])
+
+  /**
+   * Setup network event listeners for online/offline detection
+   */
+  const setupNetworkListeners = useCallback(() => {
+    if (typeof window === 'undefined') return
+
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+  }, [handleOnline, handleOffline])
 
   /**
    * Load last sync timestamp from localStorage

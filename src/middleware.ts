@@ -46,8 +46,14 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  const user = token.user as any;
-  const company = user?.company;
+  // ✅ FIX: Properties are directly on token, not token.user
+  const user = {
+    id: token.sub,
+    role: token.role,
+    companyId: token.companyId,
+    company: token.company
+  };
+  const company = token.company as any;
 
   // ✅ CRITICAL FIX: Trial Expiration Enforcement
   if (company && company.subscriptionStatus === 'trialing') {

@@ -49,3 +49,5 @@ verify-tables.js
 # backups
 /backups
 *.backup
+make-superadmin.js
+make-superadmin.sql

@@ -23,7 +23,9 @@ export async function getProjectsForCompany(companyId: string): Promise<Project[
   try {
     if (!prisma) {
       console.warn('Database not available, using localStorage fallback');
-      return localStorageProjects.getAll(companyId);
+      // ✅ CORREÇÃO: Filtrar projetos deletados também no fallback
+      const allProjects = localStorageProjects.getAll(companyId);
+      return allProjects.filter((p: any) => !p.deleted);
     }
 
     return await prisma.project.findMany({
@@ -32,7 +34,9 @@ export async function getProjectsForCompany(companyId: string): Promise<Project[
     });
   } catch (error) {
     console.warn('Database error, using localStorage fallback:', error);
-    return localStorageProjects.getAll(companyId);
+    // ✅ CORREÇÃO: Filtrar projetos deletados também no fallback
+    const allProjects = localStorageProjects.getAll(companyId);
+    return allProjects.filter((p: any) => !p.deleted);
   }
 }
 
@@ -61,7 +65,9 @@ export async function getProjectsForUser(userId: string, companyId: string): Pro
   try {
     if (!prisma) {
       console.warn('Database not available, using localStorage fallback');
-      return localStorageProjects.getAll(companyId);
+      // ✅ CORREÇÃO: Filtrar projetos deletados também no fallback
+      const allProjects = localStorageProjects.getAll(companyId);
+      return allProjects.filter((p: any) => !p.deleted);
     }
 
     // Buscar projetos onde:
@@ -98,7 +104,9 @@ export async function getProjectsForUser(userId: string, companyId: string): Pro
     return projects as Project[];
   } catch (error) {
     console.warn('Database error, using localStorage fallback:', error);
-    return localStorageProjects.getAll(companyId);
+    // ✅ CORREÇÃO: Filtrar projetos deletados também no fallback
+    const allProjects = localStorageProjects.getAll(companyId);
+    return allProjects.filter((p: any) => !p.deleted);
   }
 }
 

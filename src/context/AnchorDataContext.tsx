@@ -159,9 +159,18 @@ export const AnchorDataProvider = ({ children }: { children: ReactNode }) => {
                     logger.warn('Failed to load data from server, using localStorage fallback:', error);
                     // Fallback to localStorage
                     dbUsers = [];
-                    const rawProjects = JSON.parse(localStorage.getItem('anchorViewProjects') || '[]');
+
+                    // ✅ CORREÇÃO: Sempre filtrar projetos deletados do localStorage
+                    let rawProjects = JSON.parse(localStorage.getItem('anchorViewProjects') || '[]');
+
+                    // Também tentar o formato antigo (anchor-projects) se não houver no novo formato
+                    if (rawProjects.length === 0) {
+                      rawProjects = JSON.parse(localStorage.getItem('anchor-projects') || '[]');
+                    }
+
                     // CRITICAL: Filter out deleted projects
                     dbProjects = rawProjects.filter((p: any) => !p.deleted);
+
                     dbLocations = JSON.parse(localStorage.getItem('anchorViewLocations') || '[]');
                     setProjects(dbProjects);
                     setLocations(dbLocations);
@@ -441,14 +450,34 @@ export const AnchorDataProvider = ({ children }: { children: ReactNode }) => {
         // IMPORTANT: Also remove from localStorage to prevent reappearing
         if (typeof window !== 'undefined') {
           try {
+            // Marcar como deleted no formato antigo
             const storedProjects = JSON.parse(localStorage.getItem('anchor-projects') || '[]');
             const updatedProjects = storedProjects.map((p: any) =>
               p.id === id ? { ...p, deleted: true } : p
             );
             localStorage.setItem('anchor-projects', JSON.stringify(updatedProjects));
-            logger.log('[DEBUG] Project also marked as deleted in localStorage');
+
+            // Também marcar no formato novo
+            const newFormatProjects = JSON.parse(localStorage.getItem('anchorViewProjects') || '[]');
+            const updatedNewFormat = newFormatProjects.map((p: any) =>
+              p.id === id ? { ...p, deleted: true } : p
+            );
+            localStorage.setItem('anchorViewProjects', JSON.stringify(updatedNewFormat));
+
+            logger.log('[DEBUG] Project marked as deleted in localStorage');
           } catch (e) {
             logger.warn('Failed to update localStorage:', e);
+          }
+
+          // ✅ CORREÇÃO: Limpar cache para forçar reload na próxima vez
+          try {
+            const { dataCache } = await import('@/lib/data-cache');
+            if (companyId) {
+              dataCache.clear(`projects_${companyId}`);
+              logger.log('[DEBUG] Cache cleared for projects after delete');
+            }
+          } catch (e) {
+            logger.warn('Failed to clear cache:', e);
           }
         }
 

@@ -12,12 +12,11 @@ let tokenExpiry = null
 
 // Arquivos para cache estático (essenciais para funcionamento offline)
 // NOTA: Arquivos _next são cacheados dinamicamente na primeira requisição
+// NOTA: Ícones PWA serão cacheados dinamicamente quando existirem
 const STATIC_FILES = [
   '/',
   '/offline',
-  '/manifest.json',
-  '/icon-192.png',
-  '/icon-512.png'
+  '/manifest.json'
 ]
 
 // Estratégias de cache

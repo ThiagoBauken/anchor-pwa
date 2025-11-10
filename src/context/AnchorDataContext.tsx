@@ -99,10 +99,16 @@ export const AnchorDataProvider = ({ children }: { children: ReactNode }) => {
 
   // Initial data loading from DB and localStorage
   useEffect(() => {
+    let hasStartedLoad = false;
+
     async function loadInitialData() {
         try {
-            console.time('⏱️ [LOAD] Total load time')
-            console.log('🚀 [LOAD] Starting data load...')
+            // Prevent duplicate timer in React StrictMode
+            if (!hasStartedLoad) {
+              console.time('⏱️ [LOAD] Total load time')
+              console.log('🚀 [LOAD] Starting data load...')
+              hasStartedLoad = true
+            }
 
             // Use authenticated user from DatabaseAuthContext
             // Fallback to localStorage only if not authenticated yet

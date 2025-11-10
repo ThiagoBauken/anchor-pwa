@@ -85,20 +85,15 @@ export function InteractiveMap({
     showArchived?: boolean;
 }) {
   const {
-    inspectionFlags, allPointsForProject, currentUser, currentProject,
+    inspectionFlags, currentUser, currentProject,
     lineToolMode, setLineToolStartPoint, setLineToolEndPoint,
     lineToolStartPointId, lineToolEndPointId, getPointById,
     lineToolPreviewPoints, locations, updatePoint
   } = useOfflineData();
 
-  // Filter points based on showArchived flag
-  const filteredPoints = useMemo(() => {
-    if (showArchived) {
-      return allPointsForProject;
-    } else {
-      return allPointsForProject.filter(p => !p.archived);
-    }
-  }, [allPointsForProject, showArchived]);
+  // ✅ CORREÇÃO: Usar a prop 'points' que foi passada, não buscar do contexto
+  // Isso garante que quando o componente pai atualiza os pontos, o mapa re-renderiza
+  const filteredPoints = points;
   const [clickCoords, setClickCoords] = useState<{ x: number; y: number } | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -229,12 +224,25 @@ export function InteractiveMap({
     if (!point) return;
 
     try {
+      console.log('[DEBUG] Updating point number:', {
+        oldNumber: point.numeroPonto,
+        newNumber: editingPointNumber.trim(),
+        pointId: point.id
+      });
+
       await updatePoint({ ...point, numeroPonto: editingPointNumber.trim() });
 
-      setEditingPointId(null);
-      setEditingPointNumber('');
+      console.log('[DEBUG] Point updated successfully');
+
+      // ✅ CORREÇÃO: Pequeno delay antes de fechar edit mode para garantir re-render
+      setTimeout(() => {
+        setEditingPointId(null);
+        setEditingPointNumber('');
+      }, 50);
     } catch (error) {
       console.error('[ERROR] Failed to update point number:', error);
+      setEditingPointId(null);
+      setEditingPointNumber('');
     }
   };
 

@@ -686,19 +686,44 @@ async function notifyClients(type, data) {
   })
 }
 
-// Handle messages from clients (FIX: Responder para evitar "message channel closed")
+// ✅ CORREÇÃO: Handle messages from clients com resposta garantida
 self.addEventListener('message', (event) => {
   console.log('📨 Service Worker: Received message:', event.data)
 
-  // Sempre responder para prevenir erro de canal fechado
+  // ✅ Múltiplos métodos de resposta para garantir entrega
   const respond = (response) => {
-    if (event.ports && event.ports[0]) {
-      event.ports[0].postMessage(response)
+    try {
+      // Método 1: MessagePort (preferido)
+      if (event.ports && event.ports[0]) {
+        event.ports[0].postMessage(response)
+        console.log('✅ Response sent via MessagePort')
+        return
+      }
+
+      // Método 2: event.source.postMessage (fallback)
+      if (event.source) {
+        event.source.postMessage(response)
+        console.log('✅ Response sent via event.source')
+        return
+      }
+
+      // Método 3: Broadcast para todos os clientes (último recurso)
+      self.clients.matchAll().then(clients => {
+        clients.forEach(client => {
+          if (client.id === event.source?.id) {
+            client.postMessage(response)
+            console.log('✅ Response sent via broadcast')
+          }
+        })
+      })
+    } catch (error) {
+      console.error('❌ Failed to send response:', error)
     }
   }
 
   const { type, data } = event.data || {}
 
+  // ✅ SEMPRE responder, mesmo que seja apenas um ACK
   switch (type) {
     case 'SKIP_WAITING':
       self.skipWaiting()
@@ -709,6 +734,8 @@ self.addEventListener('message', (event) => {
       event.waitUntil(
         self.clients.claim().then(() => {
           respond({ success: true })
+        }).catch((error) => {
+          respond({ success: false, error: error.message })
         })
       )
       break
@@ -721,6 +748,8 @@ self.addEventListener('message', (event) => {
           )
         }).then(() => {
           respond({ success: true, cleared: true })
+        }).catch((error) => {
+          respond({ success: false, error: error.message })
         })
       )
       break
@@ -730,9 +759,9 @@ self.addEventListener('message', (event) => {
       break
 
     default:
-      // Para mensagens desconhecidas, ainda responder para evitar erro
-      respond({ success: true, message: 'Message received' })
-      console.log('Service Worker: Unknown message type:', type)
+      // ✅ Para mensagens desconhecidas, SEMPRE responder
+      respond({ success: true, message: 'Message received', type })
+      console.log('⚠️ Service Worker: Unknown message type:', type)
   }
 })
 

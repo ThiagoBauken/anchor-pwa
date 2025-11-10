@@ -35,6 +35,14 @@
 - **Problema:** Mapa mostrava número antigo após editar
 - **Solução:** InteractiveMap usa prop `points` ao invés de buscar do contexto
 
+### 8. ✅ QuotaExceededError (CRÍTICO - RESOLVIDO)
+- **Problema:** localStorage overflow ao salvar objetos grandes (10MB+)
+- **Solução:** Salvar apenas IDs (anchorViewCurrentProjectId, anchorViewCurrentFloorPlanId)
+
+### 9. ✅ TransactionInactiveError no Login (CRÍTICO - RESOLVIDO)
+- **Problema:** Login falhava com "The transaction has finished"
+- **Solução:** Usar mesma transação IndexedDB do início ao fim (sem await entre get e put)
+
 ---
 
 ## ⚠️ AÇÕES NECESSÁRIAS (Usuário Precisa Fazer)
@@ -121,7 +129,7 @@
 
 ---
 
-## 🐛 Problemas Resolvidos (Total: 7)
+## 🐛 Problemas Resolvidos (Total: 10)
 
 1. ✅ **Chamadas duplicadas:** 3-5x → 1x
 2. ✅ **Loop infinito:** refreshData corrigido
@@ -130,16 +138,21 @@
 5. ✅ **IndexedDB put():** Detecta create vs update
 6. ✅ **Service Worker:** Message handler robusto
 7. ✅ **Edição de ponto:** Mapa atualiza imediatamente
+8. ✅ **QuotaExceededError:** Salvar apenas IDs no localStorage
+9. ✅ **TransactionInactiveError:** Usar mesma transação IndexedDB
+10. ✅ **dataCache em ambos contextos:** Chamadas duplicadas eliminadas
 
 ---
 
 ## 📝 Resumo Executivo
 
 ### O que foi feito:
-- ✅ **7 bugs críticos** corrigidos
+- ✅ **10 bugs críticos** corrigidos
 - ✅ **Performance melhorada em 75-80%**
 - ✅ **Zero chamadas duplicadas** de API
 - ✅ **Zero memory leaks**
+- ✅ **Login funcionando** sem TransactionInactiveError
+- ✅ **localStorage otimizado** - apenas IDs (não objetos grandes)
 - ✅ **Todas as funcionalidades** testadas e funcionando
 
 ### O que VOCÊ precisa fazer:

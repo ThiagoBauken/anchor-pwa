@@ -10,19 +10,10 @@ echo ""
 echo "ℹ️  Database schema: Already synchronized (via prisma db push)"
 echo "   Run 'npx prisma migrate status' manually if migrations needed"
 echo ""
-
-# Verify database connection
-echo "🔍 Verifying database connection..."
-if echo "SELECT 1;" | ./node_modules/.bin/prisma db execute --stdin > /dev/null 2>&1; then
-  echo "✅ Database connection successful"
-else
-  echo "⚠️  Database connection failed - application may not work correctly"
-fi
-
-echo ""
 echo "🚀 Starting Next.js application..."
 echo "   Listening on port $PORT (http://0.0.0.0:$PORT)"
 echo ""
 
 # Next.js standalone mode creates server.js in current directory
+# Database connection will be verified by the application on startup
 exec node server.js

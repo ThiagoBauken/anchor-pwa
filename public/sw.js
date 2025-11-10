@@ -193,19 +193,20 @@ async function handleRequest(request, strategy) {
 // Estratégia Cache First
 async function cacheFirst(request) {
   const cachedResponse = await caches.match(request)
-  
+
   if (cachedResponse) {
     return cachedResponse
   }
-  
+
   try {
     const networkResponse = await fetch(request)
-    
-    if (networkResponse.ok) {
+
+    // Só cachear requisições GET (Cache API não suporta POST, PUT, DELETE)
+    if (networkResponse.ok && request.method === 'GET') {
       const cache = await caches.open(STATIC_CACHE)
       cache.put(request, networkResponse.clone())
     }
-    
+
     return networkResponse
   } catch (error) {
     throw error
@@ -216,25 +217,27 @@ async function cacheFirst(request) {
 async function networkFirst(request) {
   try {
     const networkResponse = await fetch(request)
-    
-    if (networkResponse.ok) {
-      // Cache successful responses
+
+    // Só cachear requisições GET (Cache API não suporta POST, PUT, DELETE)
+    if (networkResponse.ok && request.method === 'GET') {
       const cache = await caches.open(
         request.url.includes('/api/') ? API_CACHE : DYNAMIC_CACHE
       )
       cache.put(request, networkResponse.clone())
     }
-    
+
     return networkResponse
   } catch (error) {
-    // Fallback para cache se network falhar
-    const cachedResponse = await caches.match(request)
-    
-    if (cachedResponse) {
-      console.log('📱 Service Worker: Servindo do cache (offline):', request.url)
-      return cachedResponse
+    // Fallback para cache se network falhar (apenas GET)
+    if (request.method === 'GET') {
+      const cachedResponse = await caches.match(request)
+
+      if (cachedResponse) {
+        console.log('📱 Service Worker: Servindo do cache (offline):', request.url)
+        return cachedResponse
+      }
     }
-    
+
     throw error
   }
 }
@@ -242,15 +245,16 @@ async function networkFirst(request) {
 // Estratégia Stale While Revalidate
 async function staleWhileRevalidate(request) {
   const cachedResponse = caches.match(request)
-  
+
   const networkResponsePromise = fetch(request).then(async (networkResponse) => {
-    if (networkResponse.ok) {
+    // Só cachear requisições GET (Cache API não suporta POST, PUT, DELETE)
+    if (networkResponse.ok && request.method === 'GET') {
       const cache = await caches.open(DYNAMIC_CACHE)
       cache.put(request, networkResponse.clone())
     }
     return networkResponse
   }).catch(() => null)
-  
+
   // Retornar cache imediatamente se disponível, senão esperar network
   return (await cachedResponse) || (await networkResponsePromise)
 }

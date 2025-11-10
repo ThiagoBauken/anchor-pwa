@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug - Por que Projetos não aparecem?</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #0f172a;
+            color: white;
+        }
+        .container {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #6941DE;
+            margin-bottom: 10px;
+        }
+        .step {
+            background: #334155;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+            border-left: 4px solid #6941DE;
+        }
+        .step h2 {
+            color: #3b82f6;
+            margin-top: 0;
+        }
+        .success {
+            color: #22c55e;
+            font-weight: bold;
+        }
+        .warning {
+            color: #f59e0b;
+            font-weight: bold;
+        }
+        .error {
+            color: #ef4444;
+            font-weight: bold;
+        }
+        pre {
+            background: #1e293b;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        button {
+            background: #6941DE;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px 0 0;
+            transition: all 0.2s;
+        }
+        button:hover {
+            background: #5533cc;
+            transform: translateY(-2px);
+        }
+        .fix-box {
+            background: #ef4444;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .fix-box h3 {
+            margin-top: 0;
+        }
+        .fix-box code {
+            background: rgba(0,0,0,0.3);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Debug: Por que projetos não aparecem?</h1>
+        <p>Vamos investigar passo a passo por que seus projetos não estão sendo carregados.</p>
+
+        <button onclick="runFullDiagnosis()">🚀 Executar Diagnóstico Completo</button>
+        <button onclick="checkAuth()">🔐 Verificar Autenticação</button>
+        <button onclick="checkAPICall()">🌐 Testar API de Projetos</button>
+
+        <div id="results"></div>
+    </div>
+
+    <script>
+        let authToken = null;
+        let userId = null;
+        let companyId = null;
+
+        function addStep(title, content, type = 'info') {
+            const results = document.getElementById('results');
+            const step = document.createElement('div');
+            step.className = 'step';
+
+            const icon = type === 'success' ? '✅' : type === 'error' ? '❌' : type === 'warning' ? '⚠️' : '🔍';
+
+            step.innerHTML = `
+                <h2>${icon} ${title}</h2>
+                <div class="${type}">${content}</div>
+            `;
+            results.appendChild(step);
+
+            // Auto-scroll to bottom
+            results.scrollTop = results.scrollHeight;
+        }
+
+        function showFix() {
+            addStep(
+                '🔧 SOLUÇÃO ENCONTRADA',
+                `
+                <div class="fix-box">
+                    <h3>⚠️ O BANCO DE DADOS ESTÁ FALTANDO COLUNAS</h3>
+                    <p>O Prisma está tentando fazer SELECT mas as colunas não existem, causando erro silencioso.</p>
+
+                    <h4>Execute AGORA no terminal do EasyPanel:</h4>
+                    <pre style="background: rgba(0,0,0,0.4); padding: 15px; margin: 10px 0;">psql 'postgresql://privado:privado12!@private_alpdb:5432/privado?sslmode=disable'</pre>
+
+                    <p>Depois cole este SQL:</p>
+                    <pre style="background: rgba(0,0,0,0.4); padding: 15px; margin: 10px 0;">ALTER TABLE anchor_points ADD COLUMN IF NOT EXISTS archived_by_id TEXT;
+ALTER TABLE anchor_tests ADD COLUMN IF NOT EXISTS regulatory_standard TEXT;
+SELECT 'OK!' as status;
+\\q</pre>
+
+                    <p>Depois execute:</p>
+                    <pre style="background: rgba(0,0,0,0.4); padding: 15px; margin: 10px 0;">rm -rf .next && rm -rf node_modules/.prisma && npx prisma generate</pre>
+
+                    <p><strong>E clique em REBUILD no EasyPanel</strong></p>
+                </div>
+                `,
+                'error'
+            );
+        }
+
+        async function checkAuth() {
+            addStep('Passo 1: Verificando Autenticação', 'Verificando cookies e tokens...', 'info');
+
+            // Check cookies
+            const cookies = document.cookie;
+            addStep('Cookies encontrados', `<pre>${cookies || 'Nenhum cookie encontrado'}</pre>`, cookies ? 'success' : 'warning');
+
+            // Check localStorage for auth
+            const localStorageAuth = Object.keys(localStorage).filter(k =>
+                k.includes('auth') || k.includes('token') || k.includes('user')
+            );
+
+            if (localStorageAuth.length > 0) {
+                const authData = {};
+                localStorageAuth.forEach(key => {
+                    try {
+                        authData[key] = JSON.parse(localStorage.getItem(key));
+                    } catch {
+                        authData[key] = localStorage.getItem(key);
+                    }
+                });
+
+                addStep('Dados de Autenticação (localStorage)', `<pre>${JSON.stringify(authData, null, 2)}</pre>`, 'success');
+
+                // Extract user info
+                if (authData.user || authData['anchorview_user']) {
+                    const user = authData.user || authData['anchorview_user'];
+                    userId = user.id;
+                    companyId = user.companyId;
+                    addStep('Usuário Identificado', `
+                        <strong>ID:</strong> ${user.id}<br>
+                        <strong>Nome:</strong> ${user.name}<br>
+                        <strong>Email:</strong> ${user.email}<br>
+                        <strong>Company ID:</strong> ${user.companyId}<br>
+                        <strong>Role:</strong> ${user.role}
+                    `, 'success');
+                }
+            } else {
+                addStep('⚠️ Nenhum dado de autenticação encontrado', 'Você não está logado!', 'error');
+                return false;
+            }
+
+            return true;
+        }
+
+        async function checkAPICall() {
+            if (!companyId) {
+                addStep('⚠️ Company ID não encontrado', 'Execute primeiro "Verificar Autenticação"', 'warning');
+                return;
+            }
+
+            addStep('Passo 2: Testando API de Projetos', `Chamando /api/projects?companyId=${companyId}`, 'info');
+
+            try {
+                const response = await fetch(`/api/projects?companyId=${companyId}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include'
+                });
+
+                addStep('Response Status', `<strong>Status:</strong> ${response.status} ${response.statusText}`, response.ok ? 'success' : 'error');
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    if (Array.isArray(data) && data.length > 0) {
+                        addStep('✅ PROJETOS ENCONTRADOS', `
+                            <strong>${data.length} projetos no banco de dados:</strong>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        `, 'success');
+                    } else {
+                        addStep('⚠️ Nenhum projeto encontrado', 'A API retornou array vazio', 'warning');
+                    }
+                } else {
+                    addStep('❌ ERRO NA API', `
+                        <strong>Mensagem:</strong> ${data.error || data.message || 'Erro desconhecido'}
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `, 'error');
+
+                    // Check if it's a database error
+                    if (data.error && (data.error.includes('column') || data.error.includes('does not exist'))) {
+                        showFix();
+                    }
+                }
+            } catch (error) {
+                addStep('❌ Erro ao chamar API', `
+                    <strong>Erro:</strong> ${error.message}
+                    <pre>${error.stack}</pre>
+                `, 'error');
+
+                // Likely a CORS or network error, but could also be server crash due to DB error
+                addStep('💡 Possível Causa', 'Erro de banco de dados está causando crash no servidor', 'warning');
+                showFix();
+            }
+        }
+
+        async function checkConsoleErrors() {
+            addStep('Passo 3: Verificando Erros no Console', 'Abra o DevTools (F12) e veja a aba Console para erros', 'info');
+
+            addStep('💡 Como verificar', `
+                <ol>
+                    <li>Pressione <code>F12</code> para abrir DevTools</li>
+                    <li>Vá na aba <strong>Console</strong></li>
+                    <li>Procure por mensagens de erro em vermelho</li>
+                    <li>Especialmente erros com "column does not exist" ou "invalid query"</li>
+                </ol>
+            `, 'info');
+        }
+
+        async function runFullDiagnosis() {
+            document.getElementById('results').innerHTML = '';
+
+            addStep('🚀 Iniciando Diagnóstico Completo', 'Analisando todas as possíveis causas...', 'info');
+
+            // Step 1: Auth
+            const isAuthenticated = await checkAuth();
+
+            if (!isAuthenticated) {
+                addStep('❌ PROBLEMA ENCONTRADO', 'Você não está autenticado. Faça login primeiro.', 'error');
+                return;
+            }
+
+            // Wait a bit for UI
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            // Step 2: API Call
+            await checkAPICall();
+
+            // Step 3: Console errors
+            await new Promise(resolve => setTimeout(resolve, 500));
+            await checkConsoleErrors();
+
+            addStep('🏁 Diagnóstico Concluído', 'Verifique os resultados acima para identificar o problema', 'success');
+        }
+
+        // Auto-run on load
+        window.addEventListener('load', () => {
+            console.log('🔍 Debug tool loaded. Click "Executar Diagnóstico Completo" to start.');
+        });
+    </script>
+</body>
+</html>

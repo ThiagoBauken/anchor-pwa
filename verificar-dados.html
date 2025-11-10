@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verificar Dados Salvos</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 900px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #0f172a;
+            color: white;
+        }
+        .container {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #6941DE;
+            margin-bottom: 20px;
+        }
+        h2 {
+            color: #3b82f6;
+            margin-top: 30px;
+            border-bottom: 2px solid #334155;
+            padding-bottom: 10px;
+        }
+        button {
+            background: #6941DE;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+            transition: all 0.2s;
+        }
+        button:hover {
+            background: #5533cc;
+            transform: translateY(-2px);
+        }
+        .data-section {
+            background: #334155;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+        }
+        .data-item {
+            background: #1e293b;
+            border-left: 4px solid #6941DE;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success {
+            color: #22c55e;
+            font-weight: bold;
+        }
+        .warning {
+            color: #f59e0b;
+            font-weight: bold;
+        }
+        .error {
+            color: #ef4444;
+            font-weight: bold;
+        }
+        .count {
+            font-size: 24px;
+            font-weight: bold;
+            color: #6941DE;
+        }
+        pre {
+            background: #1e293b;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        .empty {
+            opacity: 0.6;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Verificar Dados Salvos</h1>
+        <p>Esta ferramenta verifica todos os dados armazenados localmente (IndexedDB, localStorage, etc.)</p>
+
+        <div>
+            <button onclick="checkAllData()">🔄 Verificar Todos os Dados</button>
+            <button onclick="checkIndexedDB()">💾 Verificar IndexedDB</button>
+            <button onclick="checkLocalStorage()">📦 Verificar localStorage</button>
+        </div>
+
+        <div id="results"></div>
+    </div>
+
+    <script>
+        function addSection(title, content, type = 'info') {
+            const results = document.getElementById('results');
+            const section = document.createElement('div');
+            section.className = 'data-section';
+            section.innerHTML = `
+                <h2>${title}</h2>
+                <div class="${type}">${content}</div>
+            `;
+            results.appendChild(section);
+        }
+
+        async function checkIndexedDB() {
+            const results = document.getElementById('results');
+            results.innerHTML = '<h2>Verificando IndexedDB...</h2>';
+
+            try {
+                // Open IndexedDB
+                const request = indexedDB.open('anchorview', 1);
+
+                request.onerror = () => {
+                    addSection('❌ IndexedDB', 'Erro ao abrir IndexedDB', 'error');
+                };
+
+                request.onsuccess = (event) => {
+                    const db = event.target.result;
+                    const storeNames = Array.from(db.objectStoreNames);
+
+                    addSection('✅ IndexedDB Aberto', `Encontradas ${storeNames.length} tabelas: ${storeNames.join(', ')}`, 'success');
+
+                    // Check each store
+                    storeNames.forEach(storeName => {
+                        const transaction = db.transaction(storeName, 'readonly');
+                        const store = transaction.objectStore(storeName);
+                        const countRequest = store.count();
+
+                        countRequest.onsuccess = () => {
+                            const count = countRequest.result;
+                            const getAllRequest = store.getAll();
+
+                            getAllRequest.onsuccess = () => {
+                                const items = getAllRequest.result;
+
+                                if (count === 0) {
+                                    addSection(`📊 ${storeName}`, `<span class="warning">Vazio (0 registros)</span>`, 'warning');
+                                } else {
+                                    let preview = '';
+                                    if (items.length > 0) {
+                                        const sample = items.slice(0, 3);
+                                        preview = `<pre>${JSON.stringify(sample, null, 2)}</pre>`;
+                                    }
+                                    addSection(
+                                        `📊 ${storeName}`,
+                                        `<span class="success count">${count}</span> registros<br>${preview}`,
+                                        'success'
+                                    );
+                                }
+                            };
+                        };
+                    });
+                };
+
+                request.onupgradeneeded = () => {
+                    addSection('⚠️ IndexedDB', 'IndexedDB não existe ou precisa ser criado', 'warning');
+                };
+
+            } catch (error) {
+                addSection('❌ Erro', error.message, 'error');
+            }
+        }
+
+        function checkLocalStorage() {
+            const results = document.getElementById('results');
+            results.innerHTML = '<h2>Verificando localStorage...</h2>';
+
+            const keys = Object.keys(localStorage);
+
+            if (keys.length === 0) {
+                addSection('📦 localStorage', '<span class="warning">Vazio (0 chaves)</span>', 'warning');
+                return;
+            }
+
+            addSection('✅ localStorage', `<span class="count">${keys.length}</span> chaves encontradas`, 'success');
+
+            // Group by prefix
+            const grouped = {};
+            keys.forEach(key => {
+                const prefix = key.split('_')[0] || 'other';
+                if (!grouped[prefix]) grouped[prefix] = [];
+                grouped[prefix].push(key);
+            });
+
+            Object.entries(grouped).forEach(([prefix, items]) => {
+                const itemsHtml = items.map(key => {
+                    const value = localStorage.getItem(key);
+                    let preview = value;
+
+                    // Try to parse JSON
+                    try {
+                        const parsed = JSON.parse(value);
+                        if (Array.isArray(parsed)) {
+                            preview = `Array com ${parsed.length} items`;
+                        } else if (typeof parsed === 'object') {
+                            preview = `Object: ${Object.keys(parsed).slice(0, 5).join(', ')}`;
+                        }
+                    } catch (e) {
+                        preview = value.substring(0, 100) + (value.length > 100 ? '...' : '');
+                    }
+
+                    return `
+                        <div class="data-item">
+                            <strong>${key}</strong><br>
+                            <span style="color: #94a3b8;">${preview}</span>
+                        </div>
+                    `;
+                }).join('');
+
+                addSection(`📁 ${prefix.toUpperCase()}`, itemsHtml);
+            });
+        }
+
+        async function checkAllData() {
+            const results = document.getElementById('results');
+            results.innerHTML = '<h2>Iniciando verificação completa...</h2>';
+
+            // 1. IndexedDB
+            await checkIndexedDB();
+
+            // 2. localStorage
+            setTimeout(() => {
+                checkLocalStorage();
+
+                // 3. Service Worker Cache
+                setTimeout(async () => {
+                    const cacheNames = await caches.keys();
+                    if (cacheNames.length === 0) {
+                        addSection('🗑️ Cache do Service Worker', '<span class="warning">Vazio (0 caches)</span>', 'warning');
+                    } else {
+                        addSection('✅ Cache do Service Worker', `<span class="count">${cacheNames.length}</span> caches: ${cacheNames.join(', ')}`, 'success');
+                    }
+                }, 1000);
+
+            }, 1000);
+        }
+
+        // Auto-check on load
+        window.addEventListener('load', () => {
+            checkAllData();
+        });
+    </script>
+</body>
+</html>

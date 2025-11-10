@@ -22,7 +22,11 @@ const nextConfig: NextConfig = {
   // PWA and offline optimizations
   experimental: {
     serverActions: {
-      allowedOrigins: ['localhost:3000', 'localhost:9002'],
+      allowedOrigins: [
+        'localhost:3000',
+        'localhost:9002',
+        'https://anchorpwa.easypanel.host', // Production domain
+      ],
       bodySizeLimit: '10mb', // Increased for floor plans and facade photos
     },
   },
@@ -37,7 +41,8 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        source: '/(.*)',
+        // Static assets (images, fonts, etc.) - long cache
+        source: '/static/(.*)',
         headers: [
           {
             key: 'Cache-Control',
@@ -46,11 +51,32 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        // JavaScript/CSS bundles - shorter cache with revalidation
+        source: '/_next/static/(.*)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=3600, must-revalidate',
+          },
+        ],
+      },
+      {
+        // API routes - no cache
         source: '/api/(.*)',
         headers: [
           {
             key: 'Cache-Control',
             value: 'no-cache, no-store, must-revalidate',
+          },
+        ],
+      },
+      {
+        // Pages - short cache with revalidation
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=0, must-revalidate',
           },
         ],
       },

@@ -1,26 +1,49 @@
 #!/bin/sh
 set -e
 
-echo "🔄 Waiting for PostgreSQL to be ready..."
+echo "🔄 Starting database initialization..."
+echo "📊 Environment check:"
+echo "   DATABASE_URL: ${DATABASE_URL:0:50}..." # Show first 50 chars only (hide password)
+echo "   NODE_ENV: $NODE_ENV"
+echo ""
 
-# Simple wait with retries
-MAX_RETRIES=30
+# Wait for PostgreSQL with better diagnostics
+MAX_RETRIES=60
 RETRY_COUNT=0
+WAIT_TIME=3
 
-until npx prisma migrate deploy 2>/dev/null || [ $RETRY_COUNT -eq $MAX_RETRIES ]; do
+echo "🔄 Waiting for PostgreSQL to be ready (up to $((MAX_RETRIES * WAIT_TIME))s)..."
+
+while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
   RETRY_COUNT=$((RETRY_COUNT + 1))
-  echo "⏳ PostgreSQL not ready yet (attempt $RETRY_COUNT/$MAX_RETRIES), waiting..."
-  sleep 2
+
+  echo "⏳ Attempt $RETRY_COUNT/$MAX_RETRIES - Testing database connection..."
+
+  # Try to connect and show actual error
+  if npx prisma migrate deploy 2>&1; then
+    echo "✅ PostgreSQL is ready!"
+    echo "✅ Migrations completed successfully!"
+    break
+  else
+    echo "⚠️  Connection failed. Waiting ${WAIT_TIME}s before retry..."
+
+    if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+      echo ""
+      echo "❌ Failed to connect to PostgreSQL after $MAX_RETRIES attempts ($((MAX_RETRIES * WAIT_TIME))s total)"
+      echo ""
+      echo "🔍 Troubleshooting steps:"
+      echo "   1. Check if PostgreSQL server is running"
+      echo "   2. Verify DATABASE_URL is correct"
+      echo "   3. Check network connectivity between containers"
+      echo "   4. Verify database credentials"
+      echo ""
+      exit 1
+    fi
+
+    sleep $WAIT_TIME
+  fi
 done
 
-if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
-  echo "❌ Failed to connect to PostgreSQL after $MAX_RETRIES attempts"
-  exit 1
-fi
-
-echo "✅ PostgreSQL is ready"
-echo "📦 Running Prisma migrations..."
-npx prisma migrate deploy
-
+echo ""
 echo "🚀 Starting Next.js application..."
 exec node server.js

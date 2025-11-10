@@ -4,8 +4,18 @@ import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 import { cookies } from 'next/headers'
 import jwt from 'jsonwebtoken'
+import { logger } from '@/lib/structured-logger'
+import { trackPerformance } from '@/lib/performance-metrics'
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
+// ✅ CRITICAL SECURITY FIX: Validate JWT_SECRET is set
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error(
+    '🔴 FATAL: JWT_SECRET environment variable is required. ' +
+    'Set it in your .env file or environment variables. ' +
+    'Application cannot start without it for security reasons.'
+  );
+}
 
 export async function registerUser(data: {
   companyName: string
@@ -15,10 +25,19 @@ export async function registerUser(data: {
   phone?: string
   companyType?: 'administradora' | 'alpinista' // New field to determine role
 }) {
+  const endTimer = logger.time('registerUser');
+
   try {
+    logger.info('User registration started', undefined, {
+      email: data.email,
+      companyName: data.companyName,
+      companyType: data.companyType
+    });
+
     // Check if Prisma is available
     if (!prisma) {
-      console.log('Database not available, using localStorage fallback')
+      logger.warn('Database not available, using localStorage fallback');
+      endTimer();
       return {
         success: false,
         message: 'Banco de dados indisponível. Use o modo offline.'
@@ -80,12 +99,14 @@ export async function registerUser(data: {
 
       return { user, company }
     }).catch((error) => {
-      console.error('Transaction error:', error)
+      logger.error('User registration transaction failed', error);
       return null
     })
 
     // Check if transaction succeeded
     if (!result || !result.user || !result.company) {
+      logger.error('User registration failed - transaction returned null');
+      endTimer();
       return {
         success: false,
         message: 'Erro ao criar conta. Banco de dados indisponível.'
@@ -113,6 +134,12 @@ export async function registerUser(data: {
       maxAge: 60 * 60 * 24 * 7 // 7 days
     })
 
+    logger.info('User registration successful', {
+      userId: result.user.id,
+      companyId: result.company.id
+    });
+    endTimer();
+
     return {
       success: true,
       message: 'Conta criada com sucesso!',
@@ -130,7 +157,8 @@ export async function registerUser(data: {
       }
     }
   } catch (error) {
-    console.error('Register error:', error)
+    logger.error('User registration unexpected error', error as Error);
+    endTimer();
     return {
       success: false,
       message: 'Erro ao criar conta. Tente novamente.'
@@ -139,10 +167,15 @@ export async function registerUser(data: {
 }
 
 export async function loginUser(email: string, password: string) {
+  const endTimer = logger.time('loginUser');
+
   try {
+    logger.info('User login attempt', undefined, { email });
+
     // Check if Prisma is available
     if (!prisma) {
-      console.log('Database not available, using localStorage fallback')
+      logger.warn('Login failed - database not available');
+      endTimer();
       return {
         success: false,
         message: 'Banco de dados indisponível. Use o modo offline.'
@@ -154,11 +187,13 @@ export async function loginUser(email: string, password: string) {
       where: { email },
       include: { company: true }
     }).catch((error) => {
-      console.error('Database query error:', error)
+      logger.error('Login database query error', error);
       return null
     })
 
     if (!user) {
+      logger.warn('Login failed - user not found', undefined, { email });
+      endTimer();
       return {
         success: false,
         message: 'Email ou senha incorretos'
@@ -169,6 +204,8 @@ export async function loginUser(email: string, password: string) {
     const validPassword = await bcrypt.compare(password, user.password).catch(() => false)
 
     if (!validPassword) {
+      logger.warn('Login failed - invalid password', { userId: user.id });
+      endTimer();
       return {
         success: false,
         message: 'Email ou senha incorretos'
@@ -204,6 +241,12 @@ export async function loginUser(email: string, password: string) {
       maxAge: 60 * 60 * 24 * 7 // 7 days
     })
 
+    logger.info('User login successful', {
+      userId: user.id,
+      companyId: user.companyId
+    });
+    endTimer();
+
     return {
       success: true,
       message: 'Login realizado com sucesso!',
@@ -221,7 +264,8 @@ export async function loginUser(email: string, password: string) {
       } : null
     }
   } catch (error) {
-    console.error('Login error:', error)
+    logger.error('User login unexpected error', error as Error);
+    endTimer();
     return {
       success: false,
       message: 'Erro ao fazer login. Banco de dados indisponível.'

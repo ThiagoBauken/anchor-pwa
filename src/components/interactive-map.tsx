@@ -8,6 +8,7 @@ import Image from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { PointForm } from './point-form';
 import { canEditMap } from '@/lib/permissions';
+import { useToast } from '@/components/ui/use-toast';
 
 const LABEL_OFFSET_THRESHOLD = 30; // Min distance between points to trigger alternating labels
 
@@ -90,6 +91,8 @@ export function InteractiveMap({
     lineToolStartPointId, lineToolEndPointId, getPointById,
     lineToolPreviewPoints, locations, updatePoint
   } = useOfflineData();
+
+  const { toast } = useToast();
 
   // ✅ CORREÇÃO: Usar a prop 'points' que foi passada, não buscar do contexto
   // Isso garante que quando o componente pai atualiza os pontos, o mapa re-renderiza
@@ -223,16 +226,36 @@ export function InteractiveMap({
     const point = filteredPoints.find(p => p.id === editingPointId);
     if (!point) return;
 
+    // ✅ CRITICAL FIX: Check for duplicate point numbers
+    const newNumber = editingPointNumber.trim();
+    const duplicate = filteredPoints.find(
+      p => p.numeroPonto === newNumber && p.id !== editingPointId
+    );
+
+    if (duplicate) {
+      toast({
+        variant: 'destructive',
+        title: 'Número duplicado',
+        description: `O ponto "${newNumber}" já existe neste projeto. Escolha um número diferente.`,
+      });
+      return;
+    }
+
     try {
       console.log('[DEBUG] Updating point number:', {
         oldNumber: point.numeroPonto,
-        newNumber: editingPointNumber.trim(),
+        newNumber,
         pointId: point.id
       });
 
-      await updatePoint({ ...point, numeroPonto: editingPointNumber.trim() });
+      await updatePoint({ ...point, numeroPonto: newNumber });
 
       console.log('[DEBUG] Point updated successfully');
+
+      toast({
+        title: 'Ponto atualizado',
+        description: `Número alterado para "${newNumber}"`,
+      });
 
       // ✅ CORREÇÃO: Pequeno delay antes de fechar edit mode para garantir re-render
       setTimeout(() => {
@@ -241,6 +264,11 @@ export function InteractiveMap({
       }, 50);
     } catch (error) {
       console.error('[ERROR] Failed to update point number:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao salvar',
+        description: 'Não foi possível atualizar o número do ponto.',
+      });
       setEditingPointId(null);
       setEditingPointNumber('');
     }

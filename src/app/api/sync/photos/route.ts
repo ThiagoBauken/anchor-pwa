@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Sync] Photo saved: ${fileName} (${buffer.length} bytes)`);
 
-    // Salvar referência no banco de dados
+    // ✅ CRITICAL FIX: Salvar referência no banco de dados com error handling adequado
     try {
       await prisma.photo.create({
         data: {
@@ -120,8 +120,17 @@ export async function POST(request: NextRequest) {
       console.log(`[Sync] Photo metadata saved to database: ${fileName}`);
     } catch (dbError) {
       console.error('[Sync] Error saving to database:', dbError);
-      // Foto foi salva em filesystem mas não no banco
-      // Continua retornando sucesso mas log o erro
+      // ✅ CRITICAL FIX: Return error if database save fails
+      // Photo is orphaned in filesystem, but client should retry sync
+      return NextResponse.json(
+        {
+          error: 'Failed to save photo metadata to database',
+          details: dbError instanceof Error ? dbError.message : 'Unknown database error',
+          fileName,
+          fileSystemSaved: true // Indicates file was saved to disk
+        },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({

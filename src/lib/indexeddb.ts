@@ -1,5 +1,6 @@
 // IndexedDB wrapper para sistema offline-first completo
 import type { Company, User, Project, Location, AnchorPoint, AnchorTest } from '@/types'
+import bcrypt from 'bcryptjs'
 
 interface DBSchema {
   companies: Company
@@ -319,11 +320,32 @@ class OfflineDB {
       if (users.length === 0) return null
 
       const user = users[0] as User & { password_hash?: string; password?: string }
-      
-      // Check both password formats for backwards compatibility
-      const expectedHash = this.simpleHash(password)
-      const isValidPassword = user.password_hash === expectedHash || user.password === password
-      
+
+      // ✅ CRITICAL SECURITY FIX: Use bcrypt for password verification
+      // Check if we have a password_hash (bcrypt) or fall back to plain password for backwards compatibility
+      let isValidPassword = false
+
+      if (user.password_hash) {
+        // Use bcrypt to verify password
+        isValidPassword = await bcrypt.compare(password, user.password_hash)
+      } else if (user.password) {
+        // Legacy fallback: plain text password (for demo/offline users created before bcrypt)
+        isValidPassword = user.password === password
+
+        // Upgrade to bcrypt hash on successful login
+        if (isValidPassword) {
+          const bcryptHash = await bcrypt.hash(password, 10)
+          await this.put('users', {
+            ...user,
+            password_hash: bcryptHash,
+            password: undefined // Remove plain text password
+          } as any, false)
+          if (typeof console !== 'undefined') {
+            console.log(`🔐 Upgraded user ${email} to bcrypt hash`)
+          }
+        }
+      }
+
       if (isValidPassword) {
         // Return clean user object without password fields
         return {
@@ -337,7 +359,7 @@ class OfflineDB {
           lastLogin: user.lastLogin
         } as User
       }
-      
+
       return null
     } catch (error) {
       console.error('Authentication error:', error)
@@ -347,12 +369,20 @@ class OfflineDB {
 
   async createUser(user: User & { password: string }): Promise<void> {
     const { password, ...userData } = user
+
+    // ✅ CRITICAL SECURITY FIX: Use bcrypt to hash password (salt rounds: 10)
+    const bcryptHash = await bcrypt.hash(password, 10)
+
     await this.put('users', {
       ...userData,
-      password_hash: this.simpleHash(password),
+      password_hash: bcryptHash,
       // offline_created: true,
       createdAt: new Date().toISOString()
     } as any)
+
+    if (typeof console !== 'undefined') {
+      console.log(`🔐 User created with bcrypt hash: ${user.email}`)
+    }
   }
 
   async getUsersByCompany(companyId: string): Promise<User[]> {
@@ -462,18 +492,6 @@ class OfflineDB {
 
   async getPendingFiles(): Promise<FileRecord[]> {
     return this.getByIndex('files', 'uploaded', false)
-  }
-
-  // Utility functions
-  private simpleHash(password: string): string {
-    // Simple hash for offline mode - in production use bcrypt
-    let hash = 0
-    for (let i = 0; i < password.length; i++) {
-      const char = password.charCodeAt(i)
-      hash = ((hash << 5) - hash) + char
-      hash = hash & hash // Convert to 32bit integer
-    }
-    return hash.toString(16)
   }
 
   // Clear all data (for logout/reset)

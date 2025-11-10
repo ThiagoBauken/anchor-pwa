@@ -115,8 +115,13 @@ const createPrismaClient = () => {
       })()
     }
 
-    // ✅ Cliente criado com sucesso - não resetar isCreatingClient aqui
-    // pois queremos manter a flag para prevenir recriações
+    // ✅ MEMORY LEAK FIX: Store client BEFORE resetting flag
+    global.prisma = client
+
+    // ✅ CRITICAL FIX: Reset flag after successful creation
+    // This allows future HMR cycles to work correctly
+    isCreatingClient = false
+
     return client
   } catch (error: any) {
     console.error('❌ Failed to create Prisma Client:', error.message)
@@ -128,11 +133,8 @@ const createPrismaClient = () => {
 
 export const prisma = global.prisma || createPrismaClient()
 
-// ✅ CORREÇÃO: Definir global.prisma SEMPRE (não apenas em dev)
-// para prevenir múltiplas criações do cliente
-if (prisma && !global.prisma) {
-  global.prisma = prisma
-}
+// Note: global.prisma is now set inside createPrismaClient()
+// to ensure proper sequencing and avoid race conditions
 
 // Helper para verificar se o banco está disponível
 export const isDatabaseAvailable = async (): Promise<boolean> => {

@@ -6,9 +6,11 @@ const STATIC_CACHE = 'anchorview-static-v4'
 const DYNAMIC_CACHE = 'anchorview-dynamic-v4'
 const API_CACHE = 'anchorview-api-v4'
 
-// JWT Token Cache (armazenado em memória)
+// ✅ CRITICAL FIX: JWT Token Cache with IndexedDB persistence
+// Tokens are stored in IndexedDB to survive Service Worker restarts
 let jwtToken = null
 let tokenExpiry = null
+let tokenLoadedFromDB = false
 
 // Arquivos para cache estático (essenciais para funcionamento offline)
 // NOTA: Arquivos _next são cacheados dinamicamente na primeira requisição
@@ -393,6 +395,9 @@ async function fetchNewJWTToken() {
     jwtToken = data.token
     tokenExpiry = new Date(data.expiresAt).getTime()
 
+    // ✅ CRITICAL FIX: Save token to IndexedDB for persistence
+    await saveJWTTokenToDB(jwtToken, tokenExpiry)
+
     console.log('✅ Service Worker: JWT token obtido com sucesso')
     console.log('⏰ Service Worker: Token expira em:', new Date(tokenExpiry).toLocaleString())
 
@@ -410,6 +415,17 @@ async function fetchNewJWTToken() {
  */
 async function ensureValidToken() {
   const now = Date.now()
+
+  // ✅ CRITICAL FIX: Try to load from IndexedDB on first call
+  if (!tokenLoadedFromDB && !jwtToken) {
+    console.log('🔄 Service Worker: First token request, trying to load from IndexedDB...')
+    const loaded = await loadJWTTokenFromDB()
+
+    if (loaded) {
+      console.log('✅ Service Worker: Token loaded from IndexedDB successfully')
+      return jwtToken
+    }
+  }
 
   // Se não tem token ou está expirado (ou expirando nos próximos 5 min)
   if (!jwtToken || !tokenExpiry || tokenExpiry - now < 5 * 60 * 1000) {
@@ -599,16 +615,21 @@ function openIndexedDB() {
     request.onerror = () => reject(request.error)
     request.onupgradeneeded = (event) => {
       const db = event.target.result
-      
+
       // Create stores if they don't exist
       if (!db.objectStoreNames.contains('sync_queue')) {
         const syncStore = db.createObjectStore('sync_queue', { keyPath: 'id' })
         syncStore.createIndex('status', 'status', { unique: false })
       }
-      
+
       if (!db.objectStoreNames.contains('files')) {
         const filesStore = db.createObjectStore('files', { keyPath: 'id' })
         filesStore.createIndex('uploaded', 'uploaded', { unique: false })
+      }
+
+      // ✅ CRITICAL FIX: JWT token persistence store
+      if (!db.objectStoreNames.contains('jwt_token')) {
+        db.createObjectStore('jwt_token', { keyPath: 'key' })
       }
     }
   })
@@ -661,7 +682,7 @@ async function markFileAsUploaded(db, fileId, url) {
     const transaction = db.transaction(['files'], 'readwrite')
     const store = transaction.objectStore('files')
     const getRequest = store.get(fileId)
-    
+
     getRequest.onsuccess = () => {
       const file = getRequest.result
       if (file) {
@@ -676,6 +697,117 @@ async function markFileAsUploaded(db, fileId, url) {
     }
     getRequest.onerror = () => reject(getRequest.error)
   })
+}
+
+// ✅ CRITICAL FIX: JWT Token persistence functions
+
+/**
+ * Save JWT token to IndexedDB for persistence across SW restarts
+ */
+async function saveJWTTokenToDB(token, expiry) {
+  try {
+    const db = await openIndexedDB()
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['jwt_token'], 'readwrite')
+      const store = transaction.objectStore('jwt_token')
+
+      const tokenData = {
+        key: 'current_token',
+        token: token,
+        expiry: expiry,
+        savedAt: Date.now()
+      }
+
+      const request = store.put(tokenData)
+      request.onsuccess = () => {
+        console.log('✅ Service Worker: JWT token saved to IndexedDB')
+        resolve()
+      }
+      request.onerror = () => {
+        console.error('❌ Service Worker: Failed to save JWT to IndexedDB:', request.error)
+        reject(request.error)
+      }
+    })
+  } catch (error) {
+    console.error('❌ Service Worker: Error saving JWT to IndexedDB:', error)
+  }
+}
+
+/**
+ * Load JWT token from IndexedDB on SW startup
+ */
+async function loadJWTTokenFromDB() {
+  try {
+    const db = await openIndexedDB()
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['jwt_token'], 'readonly')
+      const store = transaction.objectStore('jwt_token')
+      const request = store.get('current_token')
+
+      request.onsuccess = () => {
+        const tokenData = request.result
+
+        if (tokenData && tokenData.token && tokenData.expiry) {
+          const now = Date.now()
+
+          // Check if token is still valid (not expired)
+          if (tokenData.expiry > now) {
+            jwtToken = tokenData.token
+            tokenExpiry = tokenData.expiry
+            tokenLoadedFromDB = true
+
+            const minutesRemaining = Math.floor((tokenData.expiry - now) / (1000 * 60))
+            console.log(`✅ Service Worker: JWT token loaded from IndexedDB (expires in ${minutesRemaining} minutes)`)
+            resolve(true)
+          } else {
+            console.log('⏰ Service Worker: Stored JWT token is expired, will fetch new one')
+            resolve(false)
+          }
+        } else {
+          console.log('📭 Service Worker: No JWT token found in IndexedDB')
+          resolve(false)
+        }
+      }
+
+      request.onerror = () => {
+        console.error('❌ Service Worker: Failed to load JWT from IndexedDB:', request.error)
+        reject(request.error)
+      }
+    })
+  } catch (error) {
+    console.error('❌ Service Worker: Error loading JWT from IndexedDB:', error)
+    return false
+  }
+}
+
+/**
+ * Clear JWT token from IndexedDB (on logout)
+ */
+async function clearJWTTokenFromDB() {
+  try {
+    const db = await openIndexedDB()
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['jwt_token'], 'readwrite')
+      const store = transaction.objectStore('jwt_token')
+      const request = store.delete('current_token')
+
+      request.onsuccess = () => {
+        jwtToken = null
+        tokenExpiry = null
+        console.log('✅ Service Worker: JWT token cleared from IndexedDB')
+        resolve()
+      }
+      request.onerror = () => {
+        console.error('❌ Service Worker: Failed to clear JWT from IndexedDB:', request.error)
+        reject(request.error)
+      }
+    })
+  } catch (error) {
+    console.error('❌ Service Worker: Error clearing JWT from IndexedDB:', error)
+  }
 }
 
 // Comunicação com clientes
@@ -756,6 +888,16 @@ self.addEventListener('message', (event) => {
 
     case 'GET_VERSION':
       respond({ version: 'v4', cacheName: CACHE_NAME })
+      break
+
+    case 'CLEAR_JWT_TOKEN':
+      event.waitUntil(
+        clearJWTTokenFromDB().then(() => {
+          respond({ success: true, message: 'JWT token cleared' })
+        }).catch((error) => {
+          respond({ success: false, error: error.message })
+        })
+      )
       break
 
     default:

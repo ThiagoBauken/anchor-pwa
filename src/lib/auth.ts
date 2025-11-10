@@ -6,6 +6,14 @@ import { prisma } from './prisma'
 import bcrypt from 'bcryptjs'
 import type { Adapter } from 'next-auth/adapters'
 
+// ✅ CRITICAL SECURITY FIX: Validate NEXTAUTH_SECRET in production
+if (process.env.NODE_ENV === 'production' && !process.env.NEXTAUTH_SECRET) {
+  throw new Error(
+    '🔴 FATAL: NEXTAUTH_SECRET environment variable is required in production. ' +
+    'Generate a secure secret with: openssl rand -base64 32'
+  );
+}
+
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma) as Adapter,
   providers: [

@@ -22,6 +22,12 @@ export interface PermissionContext {
 export function canEditMap(context: PermissionContext): boolean {
   const { user, projectId } = context;
 
+  // ✅ CRITICAL FIX: Null check to prevent crashes
+  if (!user) {
+    console.warn('[Permissions] canEditMap called with null/undefined user');
+    return false;
+  }
+
   if (user.role === 'superadmin') {
     return true;
   }
@@ -51,6 +57,12 @@ export function canEditMap(context: PermissionContext): boolean {
 export function canCreatePoints(context: PermissionContext): boolean {
   const { user, projectId } = context;
 
+  // ✅ CRITICAL FIX: Null check to prevent crashes
+  if (!user) {
+    console.warn('[Permissions] canCreatePoints called with null/undefined user');
+    return false;
+  }
+
   if (user.role === 'superadmin') {
     return true;
   }
@@ -74,6 +86,14 @@ export function canCreatePoints(context: PermissionContext): boolean {
  * - Todos os roles podem realizar testes
  */
 export function canPerformTests(context: PermissionContext): boolean {
+  const { user } = context;
+
+  // ✅ CRITICAL FIX: Null check to prevent crashes
+  if (!user) {
+    console.warn('[Permissions] canPerformTests called with null/undefined user');
+    return false;
+  }
+
   // Todos podem realizar testes
   return true;
 }
@@ -87,6 +107,12 @@ export function canPerformTests(context: PermissionContext): boolean {
  */
 export function canInviteUsers(context: PermissionContext, roleToInvite?: UserRole): boolean {
   const { user } = context;
+
+  // ✅ CRITICAL FIX: Null check to prevent crashes
+  if (!user) {
+    console.warn('[Permissions] canInviteUsers called with null/undefined user');
+    return false;
+  }
 
   if (user.role === 'superadmin') {
     return true; // Pode convidar qualquer role
@@ -117,6 +143,12 @@ export function canInviteUsers(context: PermissionContext, roleToInvite?: UserRo
 export function canManageTeams(context: PermissionContext): boolean {
   const { user } = context;
 
+  // ✅ CRITICAL FIX: Null check to prevent crashes
+  if (!user) {
+    console.warn('[Permissions] canManageTeams called with null/undefined user');
+    return false;
+  }
+
   return user.role === 'superadmin' || user.role === 'company_admin';
 }
 
@@ -125,6 +157,14 @@ export function canManageTeams(context: PermissionContext): boolean {
  * - Todos podem visualizar projetos (com restrições por company/team)
  */
 export function canViewProjects(context: PermissionContext): boolean {
+  const { user } = context;
+
+  // ✅ CRITICAL FIX: Null check to prevent crashes
+  if (!user) {
+    console.warn('[Permissions] canViewProjects called with null/undefined user');
+    return false;
+  }
+
   return true; // Todos podem visualizar (filtrados por contexto)
 }
 
@@ -137,6 +177,12 @@ export function canViewProjects(context: PermissionContext): boolean {
  */
 export function canCreateProjects(context: PermissionContext): boolean {
   const { user } = context;
+
+  // ✅ CRITICAL FIX: Null check to prevent crashes
+  if (!user) {
+    console.warn('[Permissions] canCreateProjects called with null/undefined user');
+    return false;
+  }
 
   return user.role === 'superadmin' || user.role === 'company_admin' || user.role === 'team_admin';
 }
@@ -151,6 +197,12 @@ export function canCreateProjects(context: PermissionContext): boolean {
 export function canDeletePoints(context: PermissionContext): boolean {
   const { user } = context;
 
+  // ✅ CRITICAL FIX: Null check to prevent crashes
+  if (!user) {
+    console.warn('[Permissions] canDeletePoints called with null/undefined user');
+    return false;
+  }
+
   return user.role === 'superadmin' || user.role === 'company_admin';
 }
 
@@ -163,6 +215,12 @@ export function canDeletePoints(context: PermissionContext): boolean {
  */
 export function canDeleteProjects(context: PermissionContext): boolean {
   const { user } = context;
+
+  // ✅ CRITICAL FIX: Null check to prevent crashes
+  if (!user) {
+    console.warn('[Permissions] canDeleteProjects called with null/undefined user');
+    return false;
+  }
 
   return user.role === 'superadmin' || user.role === 'company_admin';
 }
@@ -177,6 +235,12 @@ export function canDeleteProjects(context: PermissionContext): boolean {
 export function canManagePublicSettings(context: PermissionContext): boolean {
   const { user } = context;
 
+  // ✅ CRITICAL FIX: Null check to prevent crashes
+  if (!user) {
+    console.warn('[Permissions] canManagePublicSettings called with null/undefined user');
+    return false;
+  }
+
   return user.role === 'superadmin' || user.role === 'company_admin';
 }
 
@@ -184,6 +248,12 @@ export function canManagePublicSettings(context: PermissionContext): boolean {
  * Retorna lista de roles que o usuário pode convidar
  */
 export function getInvitableRoles(user: User): UserRole[] {
+  // ✅ CRITICAL FIX: Null check to prevent crashes
+  if (!user) {
+    console.warn('[Permissions] getInvitableRoles called with null/undefined user');
+    return [];
+  }
+
   if (user.role === 'superadmin') {
     return ['superadmin', 'company_admin', 'team_admin', 'technician'];
   }
@@ -203,6 +273,12 @@ export function getInvitableRoles(user: User): UserRole[] {
  * Retorna descrição amigável do role
  */
 export function getRoleLabel(role: UserRole): string {
+  // ✅ CRITICAL FIX: Null check to prevent crashes
+  if (!role) {
+    console.warn('[Permissions] getRoleLabel called with null/undefined role');
+    return 'Não definido';
+  }
+
   const labels: Record<UserRole, string> = {
     superadmin: 'Super Administrador',
     company_admin: 'Administrador da Empresa',
@@ -217,6 +293,12 @@ export function getRoleLabel(role: UserRole): string {
  * Retorna descrição detalhada das permissões do role
  */
 export function getRoleDescription(role: UserRole): string {
+  // ✅ CRITICAL FIX: Null check to prevent crashes
+  if (!role) {
+    console.warn('[Permissions] getRoleDescription called with null/undefined role');
+    return 'Função não definida';
+  }
+
   const descriptions: Record<UserRole, string> = {
     superadmin: 'Acesso total ao sistema. Gerencia todas as empresas e configurações.',
     company_admin: 'Gerencia projetos, equipes e visualiza mapas. Não pode editar mapas.',

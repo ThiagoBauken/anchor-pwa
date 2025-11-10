@@ -122,6 +122,7 @@ export const AnchorDataProvider = ({ children }: { children: ReactNode }) => {
             // If no company ID, cannot load data
             if (!activeCompanyId) {
                 logger.warn('[AnchorDataContext] No company ID available, skipping data load');
+                if (isCancelled) return;
                 setIsLoaded(true);
                 return;
             }
@@ -150,11 +151,12 @@ export const AnchorDataProvider = ({ children }: { children: ReactNode }) => {
                     // ✅ CORREÇÃO: Check if cancelled após operação async
                     if (isCancelled) return;
 
-                    setUsers(dbUsers as any);
-                    setProjects(dbProjects as any);
+                    // ✅ RACE CONDITION FIX: Check before each state update
+                    if (!isCancelled) setUsers(dbUsers as any);
+                    if (!isCancelled) setProjects(dbProjects as any);
 
                     // Locations are now project-specific, skip default creation
-                    setLocations(dbLocations as any);
+                    if (!isCancelled) setLocations(dbLocations as any);
                 } catch (error) {
                     logger.warn('Failed to load data from server, using localStorage fallback:', error);
                     // Fallback to localStorage
@@ -172,8 +174,10 @@ export const AnchorDataProvider = ({ children }: { children: ReactNode }) => {
                     dbProjects = rawProjects.filter((p: any) => !p.deleted);
 
                     dbLocations = JSON.parse(localStorage.getItem('anchorViewLocations') || '[]');
-                    setProjects(dbProjects);
-                    setLocations(dbLocations);
+
+                    // ✅ RACE CONDITION FIX: Check before state updates in fallback
+                    if (!isCancelled) setProjects(dbProjects);
+                    if (!isCancelled) setLocations(dbLocations);
                     logger.log('[DEBUG] Loaded from localStorage with deleted filter:', dbProjects.length);
                 }
             }
@@ -181,16 +185,18 @@ export const AnchorDataProvider = ({ children }: { children: ReactNode }) => {
             // Set currentUser: prefer authUser, then from dbUsers matching activeUser
             if (authUser) {
                 // Use authenticated user from DatabaseAuthContext
-                setCurrentUser(authUser as any);
-                setUsers(dbUsers as any);
+                // ✅ RACE CONDITION FIX: Check before state updates
+                if (!isCancelled) setCurrentUser(authUser as any);
+                if (!isCancelled) setUsers(dbUsers as any);
             } else if (dbUsers.length === 0) {
                 // Fallback to localStorage if no users in DB
                 const localUsers = JSON.parse(localStorage.getItem('anchor-users') || '[]');
 
                 if (localUsers.length > 0) {
-                    setUsers(localUsers);
+                    // ✅ RACE CONDITION FIX: Check before state updates
+                    if (!isCancelled) setUsers(localUsers);
                     const matchedUser = localUsers.find((u: User) => u.id === activeUser?.id) || localUsers[0] || null;
-                    setCurrentUser(matchedUser);
+                    if (!isCancelled) setCurrentUser(matchedUser);
                 } else {
                     // Create default admin user only if nothing exists
                     const defaultUser = {
@@ -200,30 +206,33 @@ export const AnchorDataProvider = ({ children }: { children: ReactNode }) => {
                         companyId: activeCompanyId,
                         active: true
                     } as User;
-                    setUsers([defaultUser]);
-                    setCurrentUser(defaultUser);
+                    // ✅ RACE CONDITION FIX: Check before state updates
+                    if (!isCancelled) setUsers([defaultUser]);
+                    if (!isCancelled) setCurrentUser(defaultUser);
                     localStorage.setItem('anchorViewCurrentUser', JSON.stringify(defaultUser));
                     localStorage.setItem('anchor-users', JSON.stringify([defaultUser]));
                 }
             } else {
                 // Use user from DB that matches activeUser
-                setUsers(dbUsers as any);
+                // ✅ RACE CONDITION FIX: Check before state updates
+                if (!isCancelled) setUsers(dbUsers as any);
                 const matchedUser = (dbUsers as any).find((u: any) => u.id === activeUser?.id) || dbUsers[0] || null;
-                setCurrentUser(matchedUser as any);
+                if (!isCancelled) setCurrentUser(matchedUser as any);
             }
             
             // ✅ CORREÇÃO: Carregar apenas ID do localStorage, buscar objeto completo de dbProjects
             const savedProjectId = localStorage.getItem('anchorViewCurrentProjectId');
             const savedProject = savedProjectId ? (dbProjects as any).find((p: any) => p.id === savedProjectId) : null;
 
+            // ✅ RACE CONDITION FIX: Check before project state updates
             if (savedProject) {
-                setCurrentProject(savedProject);
+                if (!isCancelled) setCurrentProject(savedProject);
                 logger.log('🔄 Restored project from ID:', savedProject.name);
             } else if (dbProjects.length > 0) {
-                setCurrentProject(dbProjects[0] as any);
+                if (!isCancelled) setCurrentProject(dbProjects[0] as any);
                 logger.log('🎯 Auto-selected first project:', (dbProjects[0] as any).name);
             } else {
-                setCurrentProject(null);
+                if (!isCancelled) setCurrentProject(null);
                 logger.log('⚠️ No projects available');
             }
 
@@ -275,24 +284,26 @@ export const AnchorDataProvider = ({ children }: { children: ReactNode }) => {
                 }
             }
 
-            setAllPoints(savedPoints);
-            setAllTests(savedTests);
+            // ✅ RACE CONDITION FIX: Check before final state updates
+            if (!isCancelled) setAllPoints(savedPoints);
+            if (!isCancelled) setAllTests(savedTests);
 
             const savedShowArchived = JSON.parse(localStorage.getItem('anchorViewShowArchived') || 'false');
             const savedLastLocation = JSON.parse(localStorage.getItem('anchorViewLastLocation') || 'null');
-            setShowArchived(savedShowArchived);
-            setLastUsedLocation(savedLastLocation || '');
+            if (!isCancelled) setShowArchived(savedShowArchived);
+            if (!isCancelled) setLastUsedLocation(savedLastLocation || '');
 
-            setIsLoaded(true);
-            setSyncStatus('saved');
+            if (!isCancelled) setIsLoaded(true);
+            if (!isCancelled) setSyncStatus('saved');
 
             console.timeEnd('⏱️ [LOAD] Total load time')
             console.log('✅ [LOAD] Data load complete!')
         } catch (error) {
             logger.error("Error in loadInitialData:", error);
             // Set defaults even if loading fails
-            setIsLoaded(true);
-            setSyncStatus('error');
+            // ✅ RACE CONDITION FIX: Check before error state updates
+            if (!isCancelled) setIsLoaded(true);
+            if (!isCancelled) setSyncStatus('error');
             console.timeEnd('⏱️ [LOAD] Total load time')
         }
     }
@@ -454,6 +465,18 @@ export const AnchorDataProvider = ({ children }: { children: ReactNode }) => {
       const { deleteProject: deleteProjectAction } = await import('@/app/actions/project-actions');
       const success = await deleteProjectAction(id);
 
+      // ✅ CRITICAL FIX: CASCADE DELETE - Remove orphaned points and tests
+      const orphanedPoints = allPoints.filter(p => p.projectId === id);
+      const orphanedPointIds = orphanedPoints.map(p => p.id);
+
+      logger.log(`[DEBUG] Cascade deleting ${orphanedPoints.length} points and their tests for project ${id}`);
+
+      // Remove points from state
+      setAllPoints(prevPoints => prevPoints.filter(p => p.projectId !== id));
+
+      // Remove tests from state
+      setAllTests(prevTests => prevTests.filter(t => !orphanedPointIds.includes(t.pontoId)));
+
       // ✅ SEMPRE remover do estado e localStorage, MESMO se server delete falhar
       const remainingProjects = projects.filter(p => p.id !== id);
       setProjects(remainingProjects);
@@ -465,21 +488,31 @@ export const AnchorDataProvider = ({ children }: { children: ReactNode }) => {
       // IMPORTANT: Also remove from localStorage to prevent reappearing
       if (typeof window !== 'undefined') {
         try {
+          // Import SafeStorage
+          const { SafeStorage } = await import('@/lib/safe-storage');
+
           // Marcar como deleted no formato antigo
           const storedProjects = JSON.parse(localStorage.getItem('anchor-projects') || '[]');
           const updatedProjects = storedProjects.map((p: any) =>
             p.id === id ? { ...p, deleted: true } : p
           );
-          localStorage.setItem('anchor-projects', JSON.stringify(updatedProjects));
+          SafeStorage.setItem('anchor-projects', JSON.stringify(updatedProjects));
 
           // Também marcar no formato novo
           const newFormatProjects = JSON.parse(localStorage.getItem('anchorViewProjects') || '[]');
           const updatedNewFormat = newFormatProjects.map((p: any) =>
             p.id === id ? { ...p, deleted: true } : p
           );
-          localStorage.setItem('anchorViewProjects', JSON.stringify(updatedNewFormat));
+          SafeStorage.setItem('anchorViewProjects', JSON.stringify(updatedNewFormat));
 
-          logger.log('[DEBUG] Project marked as deleted in localStorage');
+          // ✅ CASCADE DELETE: Clean up points and tests in localStorage
+          const remainingPoints = allPoints.filter(p => p.projectId !== id);
+          SafeStorage.setItem('anchorViewPoints', JSON.stringify(remainingPoints));
+
+          const remainingTests = allTests.filter(t => !orphanedPointIds.includes(t.pontoId));
+          SafeStorage.setItem('anchorViewTests', JSON.stringify(remainingTests));
+
+          logger.log(`[DEBUG] Project marked as deleted in localStorage. Cascade deleted ${orphanedPoints.length} points, ${allTests.length - remainingTests.length} tests`);
         } catch (e) {
           logger.warn('Failed to update localStorage:', e);
         }

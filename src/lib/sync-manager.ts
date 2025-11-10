@@ -10,6 +10,8 @@ interface SyncOperation {
   timestamp: number
   retries: number
   status: 'pending' | 'syncing' | 'synced' | 'failed'
+  // ✅ CRITICAL FIX: Add exponential backoff field
+  nextRetryAt?: number
 }
 
 interface SyncResponse {
@@ -35,15 +37,44 @@ interface SyncStats {
   lastSync: Date | null
 }
 
+// ✅ CRITICAL FIX: Retry policy constants
+const MAX_RETRIES = 5
+const BASE_BACKOFF_MS = 1000 // 1 second
+const MAX_BACKOFF_MS = 60000 // 1 minute
+
+/**
+ * Calculate exponential backoff delay
+ * Formula: min(BASE_BACKOFF_MS * 2^retries, MAX_BACKOFF_MS)
+ * Example: 1s, 2s, 4s, 8s, 16s, then capped at 60s
+ */
+function calculateBackoffDelay(retries: number): number {
+  const exponentialDelay = BASE_BACKOFF_MS * Math.pow(2, retries)
+  return Math.min(exponentialDelay, MAX_BACKOFF_MS)
+}
+
 class SyncManager {
   private isOnline = true
   private syncInProgress = false
   private syncInterval: NodeJS.Timeout | null = null
   private lastSyncTimestamp: string | null = null
-  
+
   constructor() {
     this.initializeOnlineDetection()
     this.loadLastSyncTimestamp()
+    // ✅ CRITICAL FIX: Clean invalid sync operations on startup
+    this.cleanInvalidOperations()
+  }
+
+  // ✅ CRITICAL FIX: Clean invalid operations from sync queue
+  private async cleanInvalidOperations() {
+    try {
+      const removedCount = await offlineDB.cleanInvalidSyncOperations()
+      if (removedCount > 0) {
+        console.log(`🧹 Cleaned ${removedCount} invalid operations on sync manager startup`)
+      }
+    } catch (error) {
+      console.error('Failed to clean invalid operations:', error)
+    }
   }
 
   private initializeOnlineDetection() {
@@ -123,16 +154,35 @@ class SyncManager {
       const allOperations = await offlineDB.getSyncQueue()
       console.log(`📤 Found ${allOperations.length} total operations`)
 
-      // FILTER OUT invalid tables (companies, users)
+      // ✅ CRITICAL FIX: Filter operations based on retry policy
       const validTables = ['anchor_points', 'anchor_tests', 'projects', 'locations']
+      const now = Date.now()
+
       const operations = allOperations.filter(op => {
+        // Filter out invalid tables
         const isValid = validTables.includes(op.table)
         if (!isValid) {
           console.error(`❌ Skipping invalid table operation: ${op.table}_${op.operation}_${op.data?.id}`)
+          return false
         }
-        return isValid
+
+        // ✅ NEW: Filter out operations that are waiting for retry backoff
+        if (op.nextRetryAt && op.nextRetryAt > now) {
+          const waitSeconds = Math.ceil((op.nextRetryAt - now) / 1000)
+          console.log(`⏱️ Skipping operation ${op.id} (retry in ${waitSeconds}s, attempt ${op.retries + 1}/${MAX_RETRIES})`)
+          return false
+        }
+
+        // ✅ NEW: Filter out operations that have exceeded max retries
+        if (op.retries >= MAX_RETRIES) {
+          console.error(`❌ Operation ${op.id} exceeded max retries (${MAX_RETRIES}), marking as permanently failed`)
+          offlineDB.updateSyncStatus(op.id, 'failed')
+          return false
+        }
+
+        return true
       })
-      console.log(`✅ Filtered to ${operations.length} valid operations (removed ${allOperations.length - operations.length} invalid)`)
+      console.log(`✅ Filtered to ${operations.length} operations ready for sync (${allOperations.length - operations.length} filtered out)`)
 
       if (operations.length === 0) {
         // No pending operations, but still check for server updates
@@ -173,16 +223,39 @@ class SyncManager {
 
       const result: SyncResponse = await response.json()
       
-      // Mark successful operations as synced
+      // ✅ CRITICAL FIX: Mark operations with retry logic
       for (let i = 0; i < result.results.length; i++) {
         const operationResult = result.results[i]
         const operation = operations[i]
-        
+
         if (operationResult.success) {
           await offlineDB.updateSyncStatus(operation.id, 'synced')
         } else {
-          await offlineDB.updateSyncStatus(operation.id, 'failed')
-          console.error(`❌ Operation ${operation.id} failed:`, operationResult.error)
+          // Increment retry count
+          const newRetryCount = (operation.retries || 0) + 1
+
+          if (newRetryCount >= MAX_RETRIES) {
+            // Permanently failed after max retries
+            await offlineDB.updateSyncStatus(operation.id, 'failed')
+            console.error(`❌ Operation ${operation.id} permanently failed after ${MAX_RETRIES} retries:`, operationResult.error)
+          } else {
+            // Calculate next retry time with exponential backoff
+            const backoffDelay = calculateBackoffDelay(newRetryCount)
+            const nextRetryAt = Date.now() + backoffDelay
+
+            // Update operation with new retry info
+            const updatedOp = {
+              ...operation,
+              retries: newRetryCount,
+              nextRetryAt,
+              status: 'pending' as const // Keep as pending for retry
+            }
+            await offlineDB.put('sync_queue', updatedOp, false)
+
+            const nextRetrySeconds = Math.ceil(backoffDelay / 1000)
+            console.warn(`⚠️ Operation ${operation.id} failed (attempt ${newRetryCount}/${MAX_RETRIES}), will retry in ${nextRetrySeconds}s`)
+            console.error(`   Error: ${operationResult.error}`)
+          }
         }
       }
 

@@ -133,9 +133,29 @@ function LocationManager() {
                         <div key={loc.id} className="p-2 rounded-md bg-muted/50 space-y-2">
                             <div className="flex items-center justify-between">
                                 <span className="flex items-center gap-2 text-sm font-medium"><Tag className="h-4 w-4"/> {loc.name}</span>
-                                <Button variant="ghost" size="icon" onClick={() => handleDeleteLocation(loc.id)}>
-                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                </Button>
+                                {/* ✅ CRITICAL FIX: Add confirmation dialog for location deletion */}
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" size="icon">
+                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Excluir Localização?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                Tem certeza que deseja excluir a localização "{loc.name}"?
+                                                Esta ação não pode ser desfeita.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                            <AlertDialogAction onClick={() => handleDeleteLocation(loc.id)}>
+                                                Excluir
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
                             </div>
                             <RadioGroup value={loc.markerShape} onValueChange={(v) => handleUpdateShape(loc.id, v as MarkerShape)} className="flex items-center gap-4 pt-1">
                                 <Label className="text-xs">Marcador:</Label>

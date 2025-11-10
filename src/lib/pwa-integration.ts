@@ -92,17 +92,17 @@ export class PWAIntegration {
   // Trigger background sync manually
   async triggerBackgroundSync() {
     if (typeof window === 'undefined') return
-    
+
     if ('serviceWorker' in navigator && 'sync' in window.ServiceWorkerRegistration.prototype) {
       try {
         const registration = await navigator.serviceWorker.ready as ExtendedServiceWorkerRegistration
 
-        // Register different sync tags
-        await registration.sync.register('background-sync-anchor-data')
-        await registration.sync.register('background-sync-photos')
-        await registration.sync.register('background-sync-inspection-data')
-        
-        console.log('Background sync registrado')
+        // ✅ CRITICAL FIX: Use correct sync tags that match Service Worker expectations
+        // Service Worker listens for 'background-sync-data' and 'background-sync-files'
+        await registration.sync.register('background-sync-data')    // For anchor points/tests sync
+        await registration.sync.register('background-sync-files')  // For photo uploads
+
+        console.log('Background sync registrado com tags corretas')
       } catch (error) {
         console.error('Erro ao registrar background sync:', error)
       }

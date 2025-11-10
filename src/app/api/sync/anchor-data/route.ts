@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
 import { requireAuth, requireProjectAccess } from '@/middleware/auth-middleware';
-
-const prisma = new PrismaClient();
+// ✅ CRITICAL FIX: Use Prisma singleton to prevent connection pool exhaustion
+import { prisma } from '@/lib/prisma';
 
 /**
  * POST /api/sync/anchor-data
@@ -33,6 +32,29 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const { anchorPoints, anchorTests } = body;
+
+    // ✅ CRITICAL FIX: Add batch size limits to prevent DoS attacks
+    const MAX_BATCH_SIZE = 100;
+
+    if (anchorPoints && Array.isArray(anchorPoints) && anchorPoints.length > MAX_BATCH_SIZE) {
+      return NextResponse.json(
+        {
+          error: `Too many anchor points in batch. Maximum allowed: ${MAX_BATCH_SIZE}, received: ${anchorPoints.length}`,
+          maxBatchSize: MAX_BATCH_SIZE
+        },
+        { status: 400 }
+      );
+    }
+
+    if (anchorTests && Array.isArray(anchorTests) && anchorTests.length > MAX_BATCH_SIZE) {
+      return NextResponse.json(
+        {
+          error: `Too many anchor tests in batch. Maximum allowed: ${MAX_BATCH_SIZE}, received: ${anchorTests.length}`,
+          maxBatchSize: MAX_BATCH_SIZE
+        },
+        { status: 400 }
+      );
+    }
 
     const results = {
       pointsSaved: 0,

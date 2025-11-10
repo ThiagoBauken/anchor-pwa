@@ -46,6 +46,14 @@ COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
+# Copy Prisma CLI and required node_modules for migrations
+COPY --from=deps /app/node_modules/prisma ./node_modules/prisma
+COPY --from=deps /app/node_modules/@prisma ./node_modules/@prisma
+
+# Copy entrypoint script for database migrations
+COPY docker-entrypoint.sh ./
+RUN chmod +x docker-entrypoint.sh
+
 # Set correct permissions
 RUN chown -R nextjs:nodejs /app
 
@@ -56,5 +64,5 @@ EXPOSE 9002
 ENV PORT=9002
 ENV HOSTNAME="0.0.0.0"
 
-# Start the application
-CMD ["node", "server.js"]
+# Start the application with migration script
+CMD ["./docker-entrypoint.sh"]

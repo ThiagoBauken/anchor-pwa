@@ -163,10 +163,18 @@ export function OfflineDataProvider({ children }: { children: ReactNode }) {
     [currentProject, getPointsByProject]
   )
 
-  // Persist current project selection
+  // ✅ CORREÇÃO: Persist apenas ID do project selection (não objeto completo)
   useEffect(() => {
     if (currentProject) {
-      localStorage.setItem('anchorViewCurrentProject', JSON.stringify(currentProject))
+      // ✅ Salvar apenas ID para prevenir QuotaExceededError
+      localStorage.setItem('anchorViewCurrentProjectId', currentProject.id)
+
+      // ✅ Limpar objeto antigo se existir
+      try {
+        localStorage.removeItem('anchorViewCurrentProject')
+      } catch (e) {
+        // Ignore
+      }
 
       // IMPORTANT: When project changes, clear floor plan selection to prevent bugs
       // The floor plan will be auto-selected by the loadFloorPlans effect below
@@ -176,18 +184,28 @@ export function OfflineDataProvider({ children }: { children: ReactNode }) {
     }
   }, [currentProject?.id]) // Only trigger when project ID changes, not on every currentProject update
 
-  // Persist current floor plan selection (ONLY if it belongs to current project)
+  // ✅ CORREÇÃO: Persist apenas ID do floor plan (não objeto completo com imagem)
   useEffect(() => {
     if (currentFloorPlan && currentProject && currentFloorPlan.projectId === currentProject.id) {
-      localStorage.setItem('anchorViewCurrentFloorPlan', JSON.stringify(currentFloorPlan))
-      logger.log('💾 Saved floor plan to localStorage:', currentFloorPlan.name)
+      // ✅ Salvar apenas ID para prevenir QuotaExceededError (floor plan tem imagem base64 grande)
+      localStorage.setItem('anchorViewCurrentFloorPlanId', currentFloorPlan.id)
+      logger.log('💾 Saved floor plan ID to localStorage:', currentFloorPlan.name)
+
+      // ✅ Limpar objeto antigo se existir
+      try {
+        localStorage.removeItem('anchorViewCurrentFloorPlan')
+      } catch (e) {
+        // Ignore
+      }
     } else if (!currentFloorPlan) {
       // Clear localStorage when no floor plan selected (e.g., "Todas as plantas" or deleted)
+      localStorage.removeItem('anchorViewCurrentFloorPlanId')
       localStorage.removeItem('anchorViewCurrentFloorPlan')
     } else if (currentFloorPlan && currentProject && currentFloorPlan.projectId !== currentProject.id) {
       // CRITICAL: Floor plan doesn't belong to current project, clear it!
       logger.warn('⚠️ Floor plan does not belong to current project, clearing it')
       setCurrentFloorPlan(null)
+      localStorage.removeItem('anchorViewCurrentFloorPlanId')
       localStorage.removeItem('anchorViewCurrentFloorPlan')
     }
   }, [currentFloorPlan, currentProject])
@@ -408,22 +426,29 @@ export function OfflineDataProvider({ children }: { children: ReactNode }) {
     try {
       logger.log('🔄 Loading data from database...')
 
-      // Import server actions
+      // ✅ CORREÇÃO: Importar dataCache também
       const { getProjectsForUser, getProjectsForCompany } = await import('@/app/actions/project-actions')
+      const { dataCache } = await import('@/lib/data-cache')
 
       // Load projects using new function that considers team permissions
       let loadedProjects: Project[]
       if (currentUser.role === 'superadmin' || currentUser.role === 'company_admin') {
-        // Superadmin and company_admin see all company projects
-        const rawProjects = await getProjectsForCompany(currentCompany.id)
+        // ✅ CORREÇÃO: Usar dataCache para prevenir chamadas duplicadas
+        const rawProjects = await dataCache.getOrFetch(
+          `projects_${currentCompany.id}`,
+          () => getProjectsForCompany(currentCompany.id)
+        )
         loadedProjects = rawProjects.map((p: any) => ({
           ...p,
           createdAt: p.createdAt instanceof Date ? p.createdAt.toISOString() : p.createdAt,
           updatedAt: p.updatedAt instanceof Date ? p.updatedAt.toISOString() : p.updatedAt
         }))
       } else {
-        // team_admin and technician see own projects + assigned projects
-        const rawProjects = await getProjectsForUser(currentUser.id, currentCompany.id)
+        // ✅ CORREÇÃO: Usar dataCache para team_admin/technician também
+        const rawProjects = await dataCache.getOrFetch(
+          `projects_user_${currentUser.id}_${currentCompany.id}`,
+          () => getProjectsForUser(currentUser.id, currentCompany.id)
+        )
         loadedProjects = rawProjects.map((p: any) => ({
           ...p,
           createdAt: p.createdAt instanceof Date ? p.createdAt.toISOString() : p.createdAt,
@@ -431,12 +456,12 @@ export function OfflineDataProvider({ children }: { children: ReactNode }) {
         }))
       }
 
-      // Load other data in parallel (exceto points, que dependem do projeto selecionado)
-      const [
-        loadedUsers,
-        loadedLocations
-      ] = await Promise.all([
-        offlineDB.getUsersByCompany(currentCompany.id),
+      // ✅ CORREÇÃO: Usar dataCache para users também
+      const [loadedUsers, loadedLocations] = await Promise.all([
+        dataCache.getOrFetch(
+          `users_${currentCompany.id}`,
+          () => offlineDB.getUsersByCompany(currentCompany.id)
+        ),
         offlineDB.getLocationsByCompany(currentCompany.id)
       ])
 

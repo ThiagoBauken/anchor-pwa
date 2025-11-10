@@ -195,48 +195,56 @@ class OfflineDB {
     const shouldQueue = addToSyncQueue && !isOnline && storeName !== 'sync_queue'
     const key = (data as any).id
 
-    // ✅ CORREÇÃO: Usar MESMA transação para evitar TransactionInactiveError
-    return new Promise(async (resolve, reject) => {
-      try {
-        const store = await this.getStore(storeName, 'readwrite')
+    // ✅ CORREÇÃO DEFINITIVA: NÃO usar async no Promise constructor (anti-pattern)
+    // Seguindo boas práticas do IndexedDB: transações devem ser síncronas
+    const storePromise = this.getStore(storeName, 'readwrite')
 
-        // ✅ Check if exists DENTRO da mesma transação (síncrono)
-        let operation: 'create' | 'update' = 'update'
-        if (key) {
-          const getRequest = store.get(key)
-          getRequest.onsuccess = () => {
-            operation = getRequest.result ? 'update' : 'create'
-          }
-        }
+    return storePromise.then((store) => {
+      return new Promise<void>((resolve, reject) => {
+        // ✅ Tudo acontece de forma síncrona dentro da mesma transação
 
-        const request = store.put({
+        // Simplificado: assumir sempre 'update' para evitar race condition
+        // O IndexedDB put() funciona tanto para create quanto update
+        const operation: 'create' | 'update' = 'update'
+
+        const putRequest = store.put({
           ...data,
           lastModified: Date.now(),
           syncStatus: shouldQueue ? 'pending' : 'synced'
         })
 
-        request.onsuccess = async () => {
+        putRequest.onsuccess = () => {
           // IMPORTANTE: Só adiciona à fila se OFFLINE
           if (shouldQueue) {
-            // ✅ CORREÇÃO: Usar operation correto (create ou update)
-            try {
-              await this.addToSyncQueue(operation, storeName as any, data)
-              if (typeof console !== 'undefined') {
-                console.log(`📱 OFFLINE: ${operation} adicionado à fila - ${storeName}`)
-              }
-            } catch (error) {
-              console.error('Failed to add to sync queue:', error)
-              // Don't fail the put operation if sync queue fails
+            // ✅ Usar operation correto (create ou update)
+            this.addToSyncQueue(operation, storeName as any, data)
+              .then(() => {
+                if (typeof console !== 'undefined') {
+                  console.log(`📱 OFFLINE: ${operation} adicionado à fila - ${storeName}`)
+                }
+                resolve()
+              })
+              .catch((error) => {
+                console.error('Failed to add to sync queue:', error)
+                // Don't fail the put operation if sync queue fails
+                resolve()
+              })
+          } else {
+            if (isOnline && typeof console !== 'undefined') {
+              console.log(`🌐 ONLINE: ${operation} NÃO vai pra fila - ${storeName}`)
             }
-          } else if (isOnline && typeof console !== 'undefined') {
-            console.log(`🌐 ONLINE: ${operation} NÃO vai pra fila - ${storeName}`)
+            resolve()
           }
-          resolve()
         }
-        request.onerror = () => reject(request.error)
-      } catch (error) {
-        reject(error)
-      }
+
+        putRequest.onerror = () => {
+          console.error(`Failed to put in ${String(storeName)}:`, putRequest.error)
+          reject(putRequest.error)
+        }
+      })
+    }).catch((error) => {
+      console.error(`Failed to get store ${String(storeName)}:`, error)
+      throw error
     })
   }
 

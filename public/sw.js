@@ -675,5 +675,56 @@ async function notifyClients(type, data) {
   })
 }
 
+// Handle messages from clients (FIX: Responder para evitar "message channel closed")
+self.addEventListener('message', (event) => {
+  console.log('📨 Service Worker: Received message:', event.data)
+
+  // Sempre responder para prevenir erro de canal fechado
+  const respond = (response) => {
+    if (event.ports && event.ports[0]) {
+      event.ports[0].postMessage(response)
+    }
+  }
+
+  const { type, data } = event.data || {}
+
+  switch (type) {
+    case 'SKIP_WAITING':
+      self.skipWaiting()
+      respond({ success: true })
+      break
+
+    case 'CLAIM_CLIENTS':
+      event.waitUntil(
+        self.clients.claim().then(() => {
+          respond({ success: true })
+        })
+      )
+      break
+
+    case 'CLEAR_CACHE':
+      event.waitUntil(
+        caches.keys().then(cacheNames => {
+          return Promise.all(
+            cacheNames.map(cacheName => caches.delete(cacheName))
+          )
+        }).then(() => {
+          respond({ success: true, cleared: true })
+        })
+      )
+      break
+
+    case 'GET_VERSION':
+      respond({ version: 'v4', cacheName: CACHE_NAME })
+      break
+
+    default:
+      // Para mensagens desconhecidas, ainda responder para evitar erro
+      respond({ success: true, message: 'Message received' })
+      console.log('Service Worker: Unknown message type:', type)
+  }
+})
+
 console.log('🚀 Service Worker v4: Carregado com JWT Authentication!')
 console.log('🔐 Service Worker v4: Background sync protegido com autenticação')
+console.log('📨 Service Worker v4: Message handler configurado')

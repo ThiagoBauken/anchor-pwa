@@ -46,11 +46,9 @@ COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
-# Copy Prisma CLI and required node_modules for migrations
-COPY --from=deps /app/node_modules/prisma ./node_modules/prisma
-COPY --from=deps /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=deps /app/node_modules/effect ./node_modules/effect
-COPY --from=deps /app/node_modules/.bin ./node_modules/.bin
+# Copy ALL node_modules for Prisma to work (includes all transitive dependencies)
+# This is more robust than copying module by module
+COPY --from=deps /app/node_modules ./node_modules
 
 # Copy entrypoint script for database migrations
 COPY docker-entrypoint.sh ./

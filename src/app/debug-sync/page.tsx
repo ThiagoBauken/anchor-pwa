@@ -7,21 +7,23 @@ import { Badge } from '@/components/ui/badge'
 import { Trash2, RefreshCw } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 
-interface SyncQueueItem {
+// Import SyncOperation type from indexeddb
+type SyncOperation = {
   id: string
   operation: 'create' | 'update' | 'delete'
   table: string
   data: any
-  status: 'pending' | 'syncing' | 'completed' | 'error'
+  timestamp: number
   createdAt: string
-  retries?: number
+  retries: number
+  status: 'pending' | 'syncing' | 'synced' | 'failed'
 }
 
 export default function DebugSyncPage() {
   const { toast } = useToast()
-  const [syncQueue, setSyncQueue] = useState<SyncQueueItem[]>([])
+  const [syncQueue, setSyncQueue] = useState<SyncOperation[]>([])
   const [loading, setLoading] = useState(true)
-  const [grouped, setGrouped] = useState<Record<string, SyncQueueItem[]>>({})
+  const [grouped, setGrouped] = useState<Record<string, SyncOperation[]>>({})
 
   useEffect(() => {
     loadSyncQueue()
@@ -177,7 +179,7 @@ export default function DebugSyncPage() {
             <div className="p-4 bg-red-50 rounded-lg">
               <div className="text-sm text-gray-600">Com Erro</div>
               <div className="text-2xl font-bold text-red-600">
-                {syncQueue.filter(i => i.status === 'error').length}
+                {syncQueue.filter(i => i.status === 'failed').length}
               </div>
             </div>
             <div className="p-4 bg-gray-50 rounded-lg">
@@ -225,10 +227,11 @@ export default function DebugSyncPage() {
                       <div className="flex items-center gap-2 mb-1">
                         <Badge variant={
                           item.status === 'pending' ? 'default' :
-                          item.status === 'error' ? 'destructive' :
+                          item.status === 'failed' ? 'destructive' :
+                          item.status === 'syncing' ? 'secondary' :
                           'outline'
                         }>
-                          {item.status}
+                          {item.status === 'synced' ? '✅ Sincronizado' : item.status}
                         </Badge>
                         <span className="text-xs text-gray-500">
                           {formatDate(item.createdAt)}

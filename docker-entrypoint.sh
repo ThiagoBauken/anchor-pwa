@@ -13,7 +13,7 @@ echo ""
 
 # Verify database connection
 echo "🔍 Verifying database connection..."
-if ./node_modules/.bin/prisma db execute --stdin <<< "SELECT 1;" > /dev/null 2>&1; then
+if echo "SELECT 1;" | ./node_modules/.bin/prisma db execute --stdin > /dev/null 2>&1; then
   echo "✅ Database connection successful"
 else
   echo "⚠️  Database connection failed - application may not work correctly"

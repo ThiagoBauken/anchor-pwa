@@ -39,23 +39,21 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Copy necessary files from builder
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+# Copy necessary files from builder with ownership set during copy (much faster than chown -R)
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
 
 # Copy ALL node_modules for Prisma to work (includes all transitive dependencies)
 # This is more robust than copying module by module
-COPY --from=deps /app/node_modules ./node_modules
+# Using --chown during copy is 10x faster than chown -R afterwards
+COPY --from=deps --chown=nextjs:nodejs /app/node_modules ./node_modules
 
 # Copy entrypoint script for database migrations
-COPY docker-entrypoint.sh ./
+COPY --chown=nextjs:nodejs docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh
-
-# Set correct permissions
-RUN chown -R nextjs:nodejs /app
 
 USER nextjs
 

@@ -12,27 +12,38 @@ const isBuildPhase =
   process.env.CI === 'true' ||
   process.env.VERCEL_ENV === 'preview'
 
+// Track if we've already logged initialization to avoid spam
+let hasLoggedInit = false
+
 // Modo de fallback quando o banco não está disponível
 const createPrismaClient = () => {
   try {
     // Skip Prisma Client creation during build phase
     if (isBuildPhase) {
-      console.log('⏭️  Skipping Prisma Client initialization during build phase')
+      if (!hasLoggedInit) {
+        console.log('⏭️  Skipping Prisma Client initialization during build phase')
+        hasLoggedInit = true
+      }
       return null
     }
 
     // Check if DATABASE_URL is set
     if (!process.env.DATABASE_URL) {
       // Only log error in server runtime (not client-side, not build)
-      if (typeof window === 'undefined') {
+      if (typeof window === 'undefined' && !hasLoggedInit) {
         console.error('❌ DATABASE_URL is not set in environment variables')
         console.error('Please configure DATABASE_URL in your .env file or deployment environment')
+        hasLoggedInit = true
       }
       return null
     }
 
-    console.log('🔌 Initializing Prisma Client...')
-    console.log('📍 DATABASE_URL format:', process.env.DATABASE_URL.replace(/:[^:@]+@/, ':****@'))
+    // Only log initialization once to avoid duplicate logs
+    if (!hasLoggedInit) {
+      console.log('🔌 Initializing Prisma Client...')
+      console.log('📍 DATABASE_URL format:', process.env.DATABASE_URL.replace(/:[^:@]+@/, ':****@'))
+      hasLoggedInit = true
+    }
 
     const client = new PrismaClient({
       log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error', 'warn'],
@@ -43,14 +54,15 @@ const createPrismaClient = () => {
       }
     })
 
-    // Test connection immediately (async IIFE)
-    ;(async () => {
-      try {
-        console.log('🔄 Testing database connection...')
-        await client.$connect()
-        await client.$queryRaw`SELECT 1`
-        console.log('✅ Database connection successful')
-        console.log('✅ Database query test passed')
+    // Test connection immediately (async IIFE) - only once
+    if (!global.prisma) {
+      ;(async () => {
+        try {
+          console.log('🔄 Testing database connection...')
+          await client.$connect()
+          await client.$queryRaw`SELECT 1`
+          console.log('✅ Database connection successful')
+          console.log('✅ Database query test passed')
       } catch (error: any) {
         console.error('❌ Database connection failed:', error.message)
         console.error('📍 Connection string:', process.env.DATABASE_URL?.replace(/:[^:@]+@/, ':****@'))
@@ -79,8 +91,9 @@ const createPrismaClient = () => {
 
         console.error('⚠️  Application will run in localStorage fallback mode')
         console.error('⚠️  Authentication features will not work without database connection')
-      }
-    })()
+        }
+      })()
+    }
 
     return client
   } catch (error: any) {

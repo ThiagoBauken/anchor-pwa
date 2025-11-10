@@ -25,6 +25,8 @@ interface SyncOperation {
   createdAt: string  // ISO date string for UI display
   retries: number
   status: 'pending' | 'syncing' | 'synced' | 'failed'
+  // ✅ CRITICAL FIX: Add exponential backoff field
+  nextRetryAt?: number
 }
 
 interface FileRecord {

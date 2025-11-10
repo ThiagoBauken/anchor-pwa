@@ -50,6 +50,20 @@ class OfflineDB {
       request.onerror = () => reject(request.error)
       request.onsuccess = () => {
         this.db = request.result
+
+        // Handle connection close events
+        this.db.onclose = () => {
+          console.warn('⚠️ IndexedDB connection closed unexpectedly')
+          this.db = null
+        }
+
+        // Handle version change (happens when another tab updates DB)
+        this.db.onversionchange = () => {
+          console.warn('⚠️ IndexedDB version changed by another tab, closing connection')
+          this.db?.close()
+          this.db = null
+        }
+
         resolve()
       }
 
@@ -113,10 +127,26 @@ class OfflineDB {
     })
   }
 
-  private async getStore(storeName: keyof DBSchema, mode: IDBTransactionMode = 'readonly'): Promise<IDBObjectStore> {
-    if (!this.db) await this.init()
-    const transaction = this.db!.transaction([storeName], mode)
-    return transaction.objectStore(storeName)
+  private async getStore(storeName: keyof DBSchema, mode: IDBTransactionMode = 'readonly', retryCount = 0): Promise<IDBObjectStore> {
+    try {
+      // If no connection or connection was closed, initialize
+      if (!this.db) {
+        await this.init()
+      }
+
+      // Create transaction
+      const transaction = this.db!.transaction([storeName], mode)
+      return transaction.objectStore(storeName)
+    } catch (error: any) {
+      // If database connection is closing/closed, retry once
+      if (error.name === 'InvalidStateError' && retryCount === 0) {
+        console.warn('⚠️ IndexedDB connection invalid, reconnecting...')
+        this.db = null
+        await this.init()
+        return this.getStore(storeName, mode, retryCount + 1)
+      }
+      throw error
+    }
   }
 
   // Generic CRUD operations

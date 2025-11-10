@@ -8,7 +8,7 @@ import Image from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { PointForm } from './point-form';
 import { canEditMap } from '@/lib/permissions';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 
 const LABEL_OFFSET_THRESHOLD = 30; // Min distance between points to trigger alternating labels
 

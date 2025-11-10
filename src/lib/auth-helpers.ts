@@ -16,11 +16,15 @@ import type { User } from '@/types';
  */
 export async function getAuthenticatedUser(): Promise<User | null> {
   try {
+    console.log('[AuthHelpers] Attempting to get server session...');
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.email) {
+      console.log('[AuthHelpers] No session or email found');
       return null;
     }
+
+    console.log('[AuthHelpers] Session found for email:', session.user.email);
 
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
@@ -30,8 +34,16 @@ export async function getAuthenticatedUser(): Promise<User | null> {
     });
 
     if (!user) {
+      console.log('[AuthHelpers] User not found in database for email:', session.user.email);
       return null;
     }
+
+    console.log('[AuthHelpers] User authenticated:', {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      companyId: user.companyId
+    });
 
     return {
       id: user.id,
@@ -45,6 +57,10 @@ export async function getAuthenticatedUser(): Promise<User | null> {
     } as User;
   } catch (error) {
     console.error('[AuthHelpers] Error in getAuthenticatedUser:', error);
+    console.error('[AuthHelpers] Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
     return null;
   }
 }
@@ -71,24 +87,42 @@ export async function requireCompanyMatch(
   userId: string,
   resourceCompanyId: string
 ): Promise<void> {
+  console.log('[AuthHelpers] Checking company match:', { userId, resourceCompanyId });
+
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { companyId: true, role: true }
   });
 
   if (!user) {
+    console.error('[AuthHelpers] User not found:', userId);
     throw new Error('User not found');
   }
 
+  console.log('[AuthHelpers] User company check:', {
+    userId,
+    userCompanyId: user.companyId,
+    resourceCompanyId,
+    userRole: user.role,
+    isSuperadmin: user.role === 'superadmin'
+  });
+
   // Superadmin pode acessar qualquer empresa
   if (user.role === 'superadmin') {
+    console.log('[AuthHelpers] Access granted: User is superadmin');
     return;
   }
 
   // Outros usuários só podem acessar sua própria empresa
   if (user.companyId !== resourceCompanyId) {
+    console.error('[AuthHelpers] Company mismatch:', {
+      userCompanyId: user.companyId,
+      requestedCompanyId: resourceCompanyId
+    });
     throw new Error('Access denied: Company mismatch');
   }
+
+  console.log('[AuthHelpers] Access granted: Company match confirmed');
 }
 
 /**

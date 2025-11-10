@@ -101,6 +101,9 @@ export const AnchorDataProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     async function loadInitialData() {
         try {
+            console.time('⏱️ [LOAD] Total load time')
+            console.log('🚀 [LOAD] Starting data load...')
+
             // Use authenticated user from DatabaseAuthContext
             // Fallback to localStorage only if not authenticated yet
             const activeUser = authUser || JSON.parse(localStorage.getItem('anchorViewCurrentUser') || 'null');
@@ -119,15 +122,20 @@ export const AnchorDataProvider = ({ children }: { children: ReactNode }) => {
 
             if (activeCompanyId) {
                 try {
+                    console.time('⏱️ [DB] Database queries')
                     // Import server actions dynamically
                     const { getUsersForCompany } = await import('@/app/actions/user-actions');
                     const { getProjectsForCompany, getLocationsForCompany } = await import('@/app/actions/project-actions');
+                    const { dataCache } = await import('@/lib/data-cache');
 
+                    // Use cache to prevent 15+ duplicate calls!
                     [dbUsers, dbProjects, dbLocations] = await Promise.all([
-                        getUsersForCompany(activeCompanyId),
-                        getProjectsForCompany(activeCompanyId),
-                        getLocationsForCompany(activeCompanyId)
+                        dataCache.getOrFetch(`users_${activeCompanyId}`, () => getUsersForCompany(activeCompanyId)),
+                        dataCache.getOrFetch(`projects_${activeCompanyId}`, () => getProjectsForCompany(activeCompanyId)),
+                        dataCache.getOrFetch(`locations_${activeCompanyId}`, () => getLocationsForCompany(activeCompanyId))
                     ]);
+                    console.timeEnd('⏱️ [DB] Database queries')
+                    console.log(`✅ [DB] Loaded: ${dbUsers.length} users, ${dbProjects.length} projects, ${dbLocations.length} locations`)
 
                     setUsers(dbUsers as any);
                     setProjects(dbProjects as any);
@@ -194,8 +202,12 @@ export const AnchorDataProvider = ({ children }: { children: ReactNode }) => {
             }
 
             // Load points and tests from localStorage (for now)
+            console.time('⏱️ [localStorage] Parse points & tests')
             const savedPoints = JSON.parse(localStorage.getItem('anchorViewPoints') || '[]');
             const savedTests = JSON.parse(localStorage.getItem('anchorViewTests') || '[]');
+            console.timeEnd('⏱️ [localStorage] Parse points & tests')
+            console.log(`✅ [localStorage] Loaded: ${savedPoints.length} points, ${savedTests.length} tests`)
+
             setAllPoints(savedPoints);
             setAllTests(savedTests);
 
@@ -206,11 +218,15 @@ export const AnchorDataProvider = ({ children }: { children: ReactNode }) => {
 
             setIsLoaded(true);
             setSyncStatus('saved');
+
+            console.timeEnd('⏱️ [LOAD] Total load time')
+            console.log('✅ [LOAD] Data load complete!')
         } catch (error) {
             logger.error("Error in loadInitialData:", error);
             // Set defaults even if loading fails
             setIsLoaded(true);
             setSyncStatus('error');
+            console.timeEnd('⏱️ [LOAD] Total load time')
         }
     }
     

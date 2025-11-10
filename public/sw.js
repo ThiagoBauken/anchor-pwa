@@ -11,17 +11,13 @@ let jwtToken = null
 let tokenExpiry = null
 
 // Arquivos para cache estático (essenciais para funcionamento offline)
+// NOTA: Arquivos _next são cacheados dinamicamente na primeira requisição
 const STATIC_FILES = [
   '/',
-  '/auth/login',
-  '/auth/register',
   '/offline',
   '/manifest.json',
   '/icon-192.png',
-  '/icon-512.png',
-  '/_next/static/css/app/layout.css',
-  '/_next/static/chunks/webpack.js',
-  '/_next/static/chunks/main.js'
+  '/icon-512.png'
 ]
 
 // Estratégias de cache
@@ -46,19 +42,31 @@ const ROUTE_CONFIGS = [
 // Instalar Service Worker
 self.addEventListener('install', (event) => {
   console.log('🔧 Service Worker: Instalando v4 (com JWT Auth)...')
-  
+
   event.waitUntil(
     Promise.all([
-      // Cache arquivos estáticos
-      caches.open(STATIC_CACHE).then((cache) => {
+      // Cache arquivos estáticos com tratamento individual de erros
+      caches.open(STATIC_CACHE).then(async (cache) => {
         console.log('📦 Service Worker: Cacheando arquivos estáticos')
-        return cache.addAll(STATIC_FILES.map(url => new Request(url, { cache: 'reload' })))
+
+        // Tentar cachear cada arquivo individualmente para evitar falha total
+        const cachePromises = STATIC_FILES.map(async (url) => {
+          try {
+            await cache.add(new Request(url, { cache: 'reload' }))
+            console.log(`✅ Cacheado: ${url}`)
+          } catch (error) {
+            console.warn(`⚠️ Falha ao cachear ${url}:`, error.message)
+            // Não bloqueia a instalação se um arquivo falhar
+          }
+        })
+
+        await Promise.all(cachePromises)
       }),
-      
+
       // Inicializar cache dinâmico
       caches.open(DYNAMIC_CACHE),
       caches.open(API_CACHE),
-      
+
       // Skip waiting para ativar imediatamente
       self.skipWaiting()
     ])

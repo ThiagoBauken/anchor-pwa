@@ -190,38 +190,53 @@ class OfflineDB {
     data: DBSchema[T],
     addToSyncQueue = true
   ): Promise<void> {
-    const store = await this.getStore(storeName, 'readwrite')
-
-    // ✅ CORREÇÃO: Determinar se é create ou update verificando se item existe
-    const key = (data as any).id
-    const existingItem = key ? await this.get(storeName, key) : null
-    const operation = existingItem ? 'update' : 'create'
-
     // CORREÇÃO: Só adiciona à fila se OFFLINE
     const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true
     const shouldQueue = addToSyncQueue && !isOnline && storeName !== 'sync_queue'
+    const key = (data as any).id
 
-    return new Promise((resolve, reject) => {
-      const request = store.put({
-        ...data,
-        lastModified: Date.now(),
-        syncStatus: shouldQueue ? 'pending' : 'synced'
-      })
+    // ✅ CORREÇÃO: Usar MESMA transação para evitar TransactionInactiveError
+    return new Promise(async (resolve, reject) => {
+      try {
+        const store = await this.getStore(storeName, 'readwrite')
 
-      request.onsuccess = async () => {
-        // IMPORTANTE: Só adiciona à fila se OFFLINE
-        if (shouldQueue) {
-          // ✅ CORREÇÃO: Usar operation correto (create ou update)
-          await this.addToSyncQueue(operation, storeName as any, data)
-          if (typeof console !== 'undefined') {
-            console.log(`📱 OFFLINE: ${operation} adicionado à fila - ${storeName}`)
+        // ✅ Check if exists DENTRO da mesma transação (síncrono)
+        let operation: 'create' | 'update' = 'update'
+        if (key) {
+          const getRequest = store.get(key)
+          getRequest.onsuccess = () => {
+            operation = getRequest.result ? 'update' : 'create'
           }
-        } else if (isOnline && typeof console !== 'undefined') {
-          console.log(`🌐 ONLINE: ${operation} NÃO vai pra fila - ${storeName}`)
         }
-        resolve()
+
+        const request = store.put({
+          ...data,
+          lastModified: Date.now(),
+          syncStatus: shouldQueue ? 'pending' : 'synced'
+        })
+
+        request.onsuccess = async () => {
+          // IMPORTANTE: Só adiciona à fila se OFFLINE
+          if (shouldQueue) {
+            // ✅ CORREÇÃO: Usar operation correto (create ou update)
+            try {
+              await this.addToSyncQueue(operation, storeName as any, data)
+              if (typeof console !== 'undefined') {
+                console.log(`📱 OFFLINE: ${operation} adicionado à fila - ${storeName}`)
+              }
+            } catch (error) {
+              console.error('Failed to add to sync queue:', error)
+              // Don't fail the put operation if sync queue fails
+            }
+          } else if (isOnline && typeof console !== 'undefined') {
+            console.log(`🌐 ONLINE: ${operation} NÃO vai pra fila - ${storeName}`)
+          }
+          resolve()
+        }
+        request.onerror = () => reject(request.error)
+      } catch (error) {
+        reject(error)
       }
-      request.onerror = () => reject(request.error)
     })
   }
 

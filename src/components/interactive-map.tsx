@@ -88,7 +88,7 @@ export function InteractiveMap({
     inspectionFlags, allPointsForProject, currentUser, currentProject,
     lineToolMode, setLineToolStartPoint, setLineToolEndPoint,
     lineToolStartPointId, lineToolEndPointId, getPointById,
-    lineToolPreviewPoints, locations
+    lineToolPreviewPoints, locations, updatePoint
   } = useOfflineData();
 
   // Filter points based on showArchived flag
@@ -101,7 +101,12 @@ export function InteractiveMap({
   }, [allPointsForProject, showArchived]);
   const [clickCoords, setClickCoords] = useState<{ x: number; y: number } | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  
+
+  // Edit point number state
+  const [editingPointId, setEditingPointId] = useState<string | null>(null);
+  const [editingPointNumber, setEditingPointNumber] = useState<string>('');
+  const editInputRef = useRef<HTMLInputElement>(null);
+
   // Pan and Zoom state
   const localMapDimensions = useMemo(() => mapDimensions || { width: 1200, height: 900 }, [mapDimensions]);
   const [viewBox, setViewBox] = useState({ x: 0, y: 0, width: localMapDimensions.width, height: localMapDimensions.height });
@@ -200,7 +205,52 @@ export function InteractiveMap({
       console.error('[ERROR] handlePointMarkerClick failed:', error);
     }
   };
-  
+
+  // Edit point number handlers
+  const handleEditPointNumber = (e: React.MouseEvent, point: AnchorPoint) => {
+    // Only allow editing if user can edit map
+    if (!canEditMap(currentUser, currentProject?.id)) return;
+
+    e.stopPropagation();
+    setEditingPointId(point.id);
+    setEditingPointNumber(point.numeroPonto);
+
+    // Focus input after render
+    setTimeout(() => {
+      editInputRef.current?.focus();
+      editInputRef.current?.select();
+    }, 10);
+  };
+
+  const handleSavePointNumber = async () => {
+    if (!editingPointId || !editingPointNumber.trim()) return;
+
+    const point = filteredPoints.find(p => p.id === editingPointId);
+    if (!point) return;
+
+    try {
+      await updatePoint({ ...point, numeroPonto: editingPointNumber.trim() });
+
+      setEditingPointId(null);
+      setEditingPointNumber('');
+    } catch (error) {
+      console.error('[ERROR] Failed to update point number:', error);
+    }
+  };
+
+  const handleCancelEditPointNumber = () => {
+    setEditingPointId(null);
+    setEditingPointNumber('');
+  };
+
+  const handlePointNumberKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSavePointNumber();
+    } else if (e.key === 'Escape') {
+      handleCancelEditPointNumber();
+    }
+  };
+
   const handleWheel = (e: WheelEvent<SVGSVGElement>) => {
     if (!e.shiftKey || isExport) {
         return;
@@ -541,7 +591,35 @@ export function InteractiveMap({
                                 )}
 
                                 <g transform={`rotate(${-rotation} ${svgX} ${svgY})`}>
-                                   <text x={textX} y={textY} textAnchor={textAnchor} dominantBaseline={dominantBaseline} className={`font-bold stroke-white stroke-[0.5px] paint-order-stroke select-none pointer-events-none ${point.archived ? 'fill-slate-500' : 'fill-black'}`} style={{ fontSize: `${labelFontSize}px` }}>{point.numeroPonto}</text>
+                                   {editingPointId === point.id ? (
+                                     // Edit mode: Show input
+                                     <foreignObject x={textX - 30} y={textY - 12} width="60" height="24">
+                                       <input
+                                         ref={editInputRef}
+                                         type="text"
+                                         value={editingPointNumber}
+                                         onChange={(e) => setEditingPointNumber(e.target.value)}
+                                         onKeyDown={handlePointNumberKeyDown}
+                                         onBlur={handleSavePointNumber}
+                                         className="w-full h-full px-1 text-center text-xs font-bold border-2 border-blue-500 rounded"
+                                         onClick={(e) => e.stopPropagation()}
+                                         style={{ fontSize: `${labelFontSize}px` }}
+                                       />
+                                     </foreignObject>
+                                   ) : (
+                                     // View mode: Show text with double-click to edit
+                                     <text
+                                       x={textX}
+                                       y={textY}
+                                       textAnchor={textAnchor}
+                                       dominantBaseline={dominantBaseline}
+                                       className={`font-bold stroke-white stroke-[0.5px] paint-order-stroke select-none ${canEditMap(currentUser, currentProject?.id) ? 'cursor-text' : 'pointer-events-none'} ${point.archived ? 'fill-slate-500' : 'fill-black'}`}
+                                       style={{ fontSize: `${labelFontSize}px` }}
+                                       onDoubleClick={(e) => handleEditPointNumber(e, point)}
+                                     >
+                                       {point.numeroPonto}
+                                     </text>
+                                   )}
                                 </g>
                             </g>
                         )

@@ -15,6 +15,7 @@ interface CacheEntry<T> {
 
 class DataCache {
   private cache = new Map<string, CacheEntry<any>>()
+  private pendingRequests = new Map<string, Promise<any>>() // ✅ CORREÇÃO: Promise deduplication
   private readonly DEFAULT_TTL = 5 * 60 * 1000 // 5 minutos
 
   /**
@@ -52,6 +53,7 @@ class DataCache {
    */
   clear(key: string): void {
     this.cache.delete(key)
+    this.pendingRequests.delete(key) // ✅ CORREÇÃO: Limpar pending também
     console.log(`🗑️ [CACHE CLEAR] ${key}`)
   }
 
@@ -60,26 +62,50 @@ class DataCache {
    */
   clearAll(): void {
     this.cache.clear()
+    this.pendingRequests.clear() // ✅ CORREÇÃO: Limpar pending também
     console.log(`🗑️ [CACHE CLEAR ALL]`)
   }
 
   /**
-   * Get or fetch data (with cache)
+   * ✅ CORREÇÃO: Get or fetch data com promise deduplication
+   *
+   * Se múltiplos contextos chamarem ao mesmo tempo, apenas 1 chamada real será feita
    */
   async getOrFetch<T>(
     key: string,
     fetchFn: () => Promise<T>,
     ttl: number = this.DEFAULT_TTL
   ): Promise<T> {
+    // 1. Check cache first
     const cached = this.get<T>(key)
     if (cached !== null) {
       return cached
     }
 
+    // 2. ✅ Check if request is already pending (NOVO!)
+    const pending = this.pendingRequests.get(key)
+    if (pending) {
+      console.log(`⏳ [PENDING REQUEST] ${key} - waiting for in-flight request...`)
+      return pending as Promise<T>
+    }
+
+    // 3. Start new request
     console.log(`🔍 [CACHE MISS] ${key} - fetching...`)
-    const data = await fetchFn()
-    this.set(key, data, ttl)
-    return data
+    const promise = fetchFn()
+      .then((data) => {
+        this.set(key, data, ttl)
+        this.pendingRequests.delete(key) // ✅ Remove from pending após completar
+        return data
+      })
+      .catch((error) => {
+        this.pendingRequests.delete(key) // ✅ Remove from pending mesmo se erro
+        throw error
+      })
+
+    // 4. ✅ Store pending promise
+    this.pendingRequests.set(key, promise)
+
+    return promise
   }
 }
 

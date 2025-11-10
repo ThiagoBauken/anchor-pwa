@@ -209,7 +209,7 @@ export function InteractiveMap({
   // Edit point number handlers
   const handleEditPointNumber = (e: React.MouseEvent, point: AnchorPoint) => {
     // Only allow editing if user can edit map
-    if (!canEditMap(currentUser, currentProject?.id)) return;
+    if (!currentUser || !canEditMap({ user: currentUser, projectId: currentProject?.id })) return;
 
     e.stopPropagation();
     setEditingPointId(point.id);
@@ -613,7 +613,7 @@ export function InteractiveMap({
                                        y={textY}
                                        textAnchor={textAnchor}
                                        dominantBaseline={dominantBaseline}
-                                       className={`font-bold stroke-white stroke-[0.5px] paint-order-stroke select-none ${canEditMap(currentUser, currentProject?.id) ? 'cursor-text' : 'pointer-events-none'} ${point.archived ? 'fill-slate-500' : 'fill-black'}`}
+                                       className={`font-bold stroke-white stroke-[0.5px] paint-order-stroke select-none ${currentUser && canEditMap({ user: currentUser, projectId: currentProject?.id }) ? 'cursor-text' : 'pointer-events-none'} ${point.archived ? 'fill-slate-500' : 'fill-black'}`}
                                        style={{ fontSize: `${labelFontSize}px` }}
                                        onDoubleClick={(e) => handleEditPointNumber(e, point)}
                                      >

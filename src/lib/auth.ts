@@ -7,7 +7,9 @@ import bcrypt from 'bcryptjs'
 import type { Adapter } from 'next-auth/adapters'
 
 // ✅ CRITICAL SECURITY FIX: Validate NEXTAUTH_SECRET in production
-if (process.env.NODE_ENV === 'production' && !process.env.NEXTAUTH_SECRET) {
+// Skip validation during Next.js build phase
+const isBuildPhase = process.env.NEXT_PHASE === 'phase-production-build';
+if (process.env.NODE_ENV === 'production' && !process.env.NEXTAUTH_SECRET && !isBuildPhase) {
   throw new Error(
     '🔴 FATAL: NEXTAUTH_SECRET environment variable is required in production. ' +
     'Generate a secure secret with: openssl rand -base64 32'

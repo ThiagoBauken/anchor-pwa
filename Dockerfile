@@ -25,6 +25,8 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NEXT_PHASE=phase-production-build
 ENV SKIP_ENV_VALIDATION=1
+# Set dummy NEXTAUTH_SECRET for build (will be overridden at runtime)
+ENV NEXTAUTH_SECRET=dummy_build_secret_replace_at_runtime
 RUN npm run build
 
 # Production image, copy all the files and run next

@@ -38,7 +38,7 @@ export default function DebugSyncPage() {
       setSyncQueue(queue)
 
       // Agrupar por tabela e operação
-      const groupedItems: Record<string, SyncQueueItem[]> = {}
+      const groupedItems: Record<string, SyncOperation[]> = {}
       queue.forEach(item => {
         const key = `${item.table} (${item.operation})`
         if (!groupedItems[key]) {

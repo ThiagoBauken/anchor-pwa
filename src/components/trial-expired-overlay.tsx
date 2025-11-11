@@ -9,8 +9,13 @@ import { AlertTriangle, CreditCard, LogOut } from 'lucide-react'
 import Link from 'next/link'
 
 function TrialExpiredContent() {
-  const { company: currentCompany, logout } = useUnifiedAuthSafe()
+  const { company: currentCompany, user: currentUser, logout } = useUnifiedAuthSafe()
   const { isExpired, canUseApp } = useTrial()
+
+  // 🔧 FIX: Superadmin NEVER sees trial expired overlay
+  if (currentUser?.role === 'superadmin') {
+    return null
+  }
 
   // Don't show overlay if user can use app or has paid subscription
   if (!currentCompany || canUseApp || (currentCompany.subscriptionPlan !== 'trial' && currentCompany.subscriptionStatus === 'active')) {

@@ -13,7 +13,7 @@ interface TrialInfo {
 }
 
 export function useTrial(): TrialInfo {
-  const { company: currentCompany } = useUnifiedAuthSafe()
+  const { company: currentCompany, user: currentUser } = useUnifiedAuthSafe()
   const [trialInfo, setTrialInfo] = useState<TrialInfo>({
     isTrialActive: false,
     daysRemaining: 0,
@@ -26,6 +26,20 @@ export function useTrial(): TrialInfo {
 
   useEffect(() => {
     const calculateTrialInfo = () => {
+      // 🔧 FIX: Superadmin ALWAYS has access, regardless of company trial status
+      if (currentUser?.role === 'superadmin') {
+        setTrialInfo({
+          isTrialActive: false,
+          daysRemaining: 0,
+          hoursRemaining: 0,
+          minutesRemaining: 0,
+          isExpired: false,
+          canUseApp: true,
+          trialEndDate: null
+        })
+        return
+      }
+
       if (!currentCompany) {
         setTrialInfo({
           isTrialActive: false,
@@ -112,7 +126,7 @@ export function useTrial(): TrialInfo {
     const interval = setInterval(calculateTrialInfo, 60000)
 
     return () => clearInterval(interval)
-  }, [currentCompany])
+  }, [currentCompany, currentUser])
 
   return trialInfo
 }

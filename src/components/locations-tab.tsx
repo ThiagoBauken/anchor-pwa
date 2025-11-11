@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import { useOfflineData } from '@/context/OfflineDataContext';
+import { useAnchorData } from '@/context/AnchorDataContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -41,7 +41,7 @@ function LocationForm({ location, onSuccess, projectId }: LocationFormProps) {
   const [markerColor, setMarkerColor] = useState(location?.markerColor || '#6941DE');
   const [isLoading, setIsLoading] = useState(false);
 
-  const { createLocation, updateLocation, currentUser } = useOfflineData();
+  const { addLocation, updateLocationShape, currentUser } = useAnchorData();
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -51,24 +51,13 @@ function LocationForm({ location, onSuccess, projectId }: LocationFormProps) {
     setIsLoading(true);
     try {
       if (location) {
-        await updateLocation({
-          ...location,
-          name,
-          markerShape,
-          markerColor
-        });
+        await updateLocationShape(location.id, markerShape);
         toast({
           title: 'Localização atualizada',
           description: 'A localização foi atualizada com sucesso.',
         });
       } else {
-        await createLocation({
-          name,
-          markerShape,
-          markerColor,
-          companyId: currentUser.companyId,
-          projectId: projectId
-        });
+        await addLocation(name);
         toast({
           title: 'Localização criada',
           description: 'A nova localização foi criada com sucesso.',
@@ -183,7 +172,7 @@ function ProgressionGenerator({ onSuccess }: ProgressionGeneratorProps) {
   const [spacing, setSpacing] = useState(50);
   const [isLoading, setIsLoading] = useState(false);
 
-  const { currentProject, createPoint, locations, currentUser } = useOfflineData();
+  const { currentProject, addPoint, locations, currentUser } = useAnchorData();
   const { toast } = useToast();
 
   const handleGenerate = async () => {
@@ -208,14 +197,12 @@ function ProgressionGenerator({ onSuccess }: ProgressionGeneratorProps) {
         const y = direction === 'vertical' ? i * spacing + 100 : 100;
 
         promises.push(
-          createPoint({
+          addPoint({
             projectId: currentProject.id,
             numeroPonto: pointNumber.toString(),
             localizacao: location,
             posicaoX: x,
-            posicaoY: y,
-            status: 'Não Testado',
-            createdByUserId: currentUser.id
+            posicaoY: y
           })
         );
       }
@@ -319,7 +306,7 @@ function ProgressionGenerator({ onSuccess }: ProgressionGeneratorProps) {
 }
 
 export function LocationsTab() {
-  const { locations, createLocation, deleteLocation, currentProject, currentUser } = useOfflineData();
+  const { locations, addLocation, deleteLocation, currentProject, currentUser } = useAnchorData();
   const [editLocation, setEditLocation] = useState<Location | undefined>();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -349,18 +336,14 @@ export function LocationsTab() {
 
     try {
       const defaultLocs = [
-        { name: 'Cobertura', markerShape: 'circle' as MarkerShape, markerColor: '#22c55e' }, // green
-        { name: 'Sala de Máquinas', markerShape: 'square' as MarkerShape, markerColor: '#3b82f6' }, // blue
-        { name: 'Área Externa', markerShape: 'x' as MarkerShape, markerColor: '#f59e0b' }, // amber
-        { name: 'Subsolo', markerShape: '+' as MarkerShape, markerColor: '#8b5cf6' }, // purple
+        'Cobertura',
+        'Sala de Máquinas',
+        'Área Externa',
+        'Subsolo',
       ];
 
-      for (const loc of defaultLocs) {
-        await createLocation({
-          ...loc,
-          companyId: currentUser.companyId,
-          projectId: currentProject.id
-        });
+      for (const locName of defaultLocs) {
+        await addLocation(locName);
       }
 
       toast({

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { InteractiveMap } from './interactive-map';
 import { Badge } from './ui/badge';
-import { useOfflineData } from '@/context/OfflineDataContext';
+import { useAnchorData } from '@/context/AnchorDataContext';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
@@ -51,7 +51,6 @@ export function MapTab({ onActiveFloorPlanChange }: { onActiveFloorPlanChange?: 
   const {
     currentProject,
     points,
-    isLoading,
     floorPlans,
     currentFloorPlan,
     setCurrentFloorPlan,
@@ -60,12 +59,13 @@ export function MapTab({ onActiveFloorPlanChange }: { onActiveFloorPlanChange?: 
     deleteFloorPlan,
     toggleFloorPlanActive,
     currentUser
-  } = useOfflineData();
+  } = useAnchorData();
   
   // Local states for missing features
   const [showArchived, setShowArchived] = useState(false);
   const [lineToolMode, setLineToolMode] = useState(false);
-  
+  const [isLoading, setIsLoading] = useState(false);
+
   const resetLineTool = () => {
     setLineToolMode(false);
   };

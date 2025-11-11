@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useOfflineData } from '@/context/OfflineDataContext';
+import { useAnchorData } from '@/context/AnchorDataContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import Image from 'next/image';
 import { Badge } from './ui/badge';
@@ -66,13 +66,13 @@ function TestDetails({ test, users }: { test: AnchorTest, users: any[] }) {
 
 
 export function PointDetailsModal({ isOpen, onClose, pointId }: PointDetailsModalProps) {
-  const { getPointById, getTestsByPoint, users, getProjectById, setActiveTab, setTestPointId, currentUser } = useOfflineData();
+  const { getPointById, getTestsByPointId, users, getProjectById, setActiveTab, setTestPointId, currentUser } = useAnchorData();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [showTestConfirm, setShowTestConfirm] = useState(false);
   
   const point = pointId ? getPointById(pointId) : null;
   const project = point ? getProjectById(point.projectId) : null;
-  const tests = pointId ? getTestsByPoint(pointId) : [];
+  const tests = pointId ? getTestsByPointId(pointId) : [];
 
   if (!point) return null;
 

@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { SessionProvider } from 'next-auth/react'
 import { UnifiedAuthProvider } from '@/context/UnifiedAuthContext'
-import { OfflineDataProvider } from '@/context/OfflineDataContext'
 import { AnchorDataProvider } from '@/context/AnchorDataContext'
 
 /**
@@ -11,8 +10,7 @@ import { AnchorDataProvider } from '@/context/AnchorDataContext'
  *
  * Consolidated provider structure:
  * - SessionProvider: NextAuth session management
- * - UnifiedAuthProvider: Unified auth (online/offline, JWT, sync)
- * - OfflineDataProvider: Offline-first data management
+ * - UnifiedAuthProvider: Unified auth and JWT management
  * - AnchorDataProvider: Application state management
  */
 export function ClientProviders({ children }: { children: React.ReactNode }) {
@@ -30,11 +28,9 @@ export function ClientProviders({ children }: { children: React.ReactNode }) {
   return (
     <SessionProvider>
       <UnifiedAuthProvider>
-        <OfflineDataProvider>
-          <AnchorDataProvider>
-            {children}
-          </AnchorDataProvider>
-        </OfflineDataProvider>
+        <AnchorDataProvider>
+          {children}
+        </AnchorDataProvider>
       </UnifiedAuthProvider>
     </SessionProvider>
   )

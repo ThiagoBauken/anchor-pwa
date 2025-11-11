@@ -5,8 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { Building2, Phone, Mail, MapPin, Users, Calendar, Shield, FileText, ExternalLink, Send, AlertCircle } from 'lucide-react'
-import { useOfflineAuthSafe } from '@/context/OfflineAuthContext'
-import { useOfflineData } from '@/context/OfflineDataContext'
+import { useUnifiedAuthSafe } from '@/context/UnifiedAuthContext'
+import { useAnchorData } from '@/context/AnchorDataContext'
 import { getClimbingCompanies } from '@/app/actions/marketplace-actions'
 import { inviteCompanyToProject } from '@/app/actions/invitation-actions'
 import { LoadingOverlay } from './ui/loading-spinner'
@@ -54,8 +54,8 @@ interface ClimbingCompany {
 }
 
 export function MarketplaceTab() {
-  const { currentUser } = useOfflineAuthSafe()
-  const { projects } = useOfflineData()
+  const { user: currentUser } = useUnifiedAuthSafe()
+  const { projects } = useAnchorData()
   const { toast } = useToast()
   const [companies, setCompanies] = useState<ClimbingCompany[]>([])
   const [isLoading, setIsLoading] = useState(true)

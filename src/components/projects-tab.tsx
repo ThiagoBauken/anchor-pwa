@@ -16,7 +16,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useOfflineData } from '@/context/OfflineDataContext';
+import { useAnchorData } from '@/context/AnchorDataContext';
 import { useToast } from '@/hooks/use-toast';
 import type { MarkerShape } from '@/types';
 import { canCreateProjects } from '@/lib/permissions';
@@ -30,7 +30,7 @@ import PublicSettingsDialog from './public-settings-dialog';
 
 
 function LocationManager() {
-    const { locations, createLocation, deleteLocation, updateLocationShape, points, currentProject } = useOfflineData();
+    const { locations, addLocation, deleteLocation, updateLocationShape, points, currentProject } = useAnchorData();
     const [newLocation, setNewLocation] = useState('');
     const { toast } = useToast();
 
@@ -55,12 +55,7 @@ function LocationManager() {
         }
 
         try {
-            await createLocation({
-                name: newLocation.trim(),
-                markerShape: 'circle',
-                companyId: '', // Will be set by the context
-                projectId: '' // Will be set by the context
-            });
+            await addLocation(newLocation.trim());
             setNewLocation('');
             toast({ title: 'Localização Adicionada' });
         } catch (error) {
@@ -233,7 +228,7 @@ function FileUpload({ onFilesSelect, initialFiles = [] }: { onFilesSelect: (base
 }
 
 export function ProjectsTab() {
-  const { projects, createProject, updateProject, deleteProject, setCurrentProject, currentProject, currentUser, points: allPointsForProject } = useOfflineData();
+  const { projects, addProject, updateProject, deleteProject, setCurrentProject, currentProject, currentUser, points: allPointsForProject } = useAnchorData();
   const [newProject, setNewProject] = useState({
     name: '',
     floorPlanImages: [] as string[],
@@ -295,7 +290,7 @@ export function ProjectsTab() {
         dwgRealWidth: newProject.dwgRealWidth ? parseFloat(newProject.dwgRealWidth) : undefined,
         dwgRealHeight: newProject.dwgRealHeight ? parseFloat(newProject.dwgRealHeight) : undefined,
       };
-      createProject(projectData);
+      addProject(projectData);
 
       toast({
         title: 'Projeto Adicionado',
@@ -365,15 +360,35 @@ export function ProjectsTab() {
     }
 
     try {
-      const projectData = {
-        ...editingProject,
-        companyId: editingProject.companyId || currentUser?.companyId || '',
+      const updates = {
+        name: editingProject.name,
+        floorPlanImages: editingProject.floorPlanImages,
+        obraAddress: editingProject.obraAddress,
+        obraCEP: editingProject.obraCEP,
+        obraCNPJ: editingProject.obraCNPJ,
+        contratanteName: editingProject.contratanteName,
+        contratanteAddress: editingProject.contratanteAddress,
+        contratanteCEP: editingProject.contratanteCEP,
+        cnpjContratado: editingProject.cnpjContratado,
+        contato: editingProject.contato,
+        valorContrato: editingProject.valorContrato,
+        dataInicio: editingProject.dataInicio,
+        dataTermino: editingProject.dataTermino,
+        responsavelTecnico: editingProject.responsavelTecnico,
+        registroCREA: editingProject.registroCREA,
+        tituloProfissional: editingProject.tituloProfissional,
+        numeroART: editingProject.numeroART,
+        rnp: editingProject.rnp,
+        cargaDeTestePadrao: editingProject.cargaDeTestePadrao,
+        tempoDeTestePadrao: editingProject.tempoDeTestePadrao,
+        engenheiroResponsavelPadrao: editingProject.engenheiroResponsavelPadrao,
+        dispositivoDeAncoragemPadrao: editingProject.dispositivoDeAncoragemPadrao,
         scalePixelsPerMeter: editingProject.scalePixelsPerMeter ? parseFloat(editingProject.scalePixelsPerMeter) : undefined,
         dwgRealWidth: editingProject.dwgRealWidth ? parseFloat(editingProject.dwgRealWidth) : undefined,
         dwgRealHeight: editingProject.dwgRealHeight ? parseFloat(editingProject.dwgRealHeight) : undefined,
       };
 
-      await updateProject(projectData);
+      await updateProject(editingProject.id, updates);
 
       toast({
         title: 'Projeto Atualizado',

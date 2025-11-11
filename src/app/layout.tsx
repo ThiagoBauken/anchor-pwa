@@ -2,10 +2,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
-import { PwaInstaller } from "@/components/pwa-installer";
 import { ClientProviders } from "@/components/client-providers";
 import { ErrorSuppressor } from "@/components/error-suppressor";
-import { PullToRefreshPreventer } from "@/components/pull-to-refresh-preventer";
 import { ThemeProvider } from "@/context/ThemeContext";
 
 // Font import disabled for offline builds - use system fonts
@@ -15,7 +13,6 @@ import { ThemeProvider } from "@/context/ThemeContext";
 export const metadata: Metadata = {
   title: "AnchorView",
   description: "Sistema Completo de Gerenciamento de Pontos de Ancoragem",
-  manifest: "/manifest.json",
   applicationName: "AnchorView",
   appleWebApp: {
     capable: true,
@@ -45,10 +42,8 @@ export default function RootLayout({
         >
           <ClientProviders>
             <ErrorSuppressor />
-            <PullToRefreshPreventer />
             {children}
             <Toaster />
-            <PwaInstaller />
           </ClientProviders>
         </ThemeProvider>
       </body>

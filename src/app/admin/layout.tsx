@@ -2,14 +2,14 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useOfflineAuthSafe } from '@/context/OfflineAuthContext'
+import { useUnifiedAuthSafe } from '@/context/UnifiedAuthContext'
 
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const { currentUser, isAuthenticated, isLoading } = useOfflineAuthSafe()
+  const { user: currentUser, isAuthenticated, loading: isLoading } = useUnifiedAuthSafe()
   const router = useRouter()
 
   useEffect(() => {

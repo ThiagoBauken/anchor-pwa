@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useOfflineData } from "@/context/OfflineDataContext";
+import { useAnchorData } from '@/context/AnchorDataContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Label } from "./ui/label";
@@ -18,12 +18,13 @@ interface CreateProgressionDialogProps {
 }
 
 export function CreateProgressionDialog({ isOpen, onOpenChange }: CreateProgressionDialogProps) {
-    const { 
-        points, 
-        currentProject, 
-        currentLocation,
-        createPoint
-    } = useOfflineData();
+    const {
+        points,
+        currentProject,
+        locations,
+        lastUsedLocation,
+        addPoint
+    } = useAnchorData();
     
     const { toast } = useToast();
     
@@ -137,6 +138,7 @@ export function CreateProgressionDialog({ isOpen, onOpenChange }: CreateProgress
                     y = 100;
                 }
                 
+                const currentLocation = locations.find(l => l.id === lastUsedLocation);
                 const pointData = {
                     projectId: currentProject.id,
                     numeroPonto: previewNumbers[i],
@@ -146,8 +148,8 @@ export function CreateProgressionDialog({ isOpen, onOpenChange }: CreateProgress
                     status: 'Não Testado' as const,
                     archived: false
                 };
-                
-                await createPoint(pointData);
+
+                addPoint(pointData);
                 newPoints.push(pointData);
             }
             

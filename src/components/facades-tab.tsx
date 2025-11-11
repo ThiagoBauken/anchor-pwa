@@ -1,12 +1,12 @@
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { useOfflineData } from '@/context/OfflineDataContext';
+import { useAnchorData } from '@/context/AnchorDataContext';
 import { FacadeInspectionManager } from './facade-inspection-manager';
 import { Building2 } from 'lucide-react';
 
 export function FacadesTab() {
-  const { currentProject, currentUser } = useOfflineData();
+  const { currentProject, currentUser } = useAnchorData();
 
   if (!currentProject) {
     return (

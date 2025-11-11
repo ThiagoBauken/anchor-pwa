@@ -2,7 +2,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
-import { AnchorPoint, AnchorTest, User, Project, AnchorTestResult, Location, MarkerShape, Company, UserRole } from '@/types';
+import { AnchorPoint, AnchorTest, User, Project, AnchorTestResult, Location, MarkerShape, Company, UserRole, FloorPlan } from '@/types';
 import { useUnifiedAuth } from '@/context/UnifiedAuthContext';
 import logger from '@/lib/logger';
 // Server actions imported dynamically to avoid SSR issues
@@ -21,7 +21,17 @@ interface AnchorDataContextType {
   locations: Location[];
   lastUsedLocation: string;
   setLastUsedLocation: (location: string) => void;
+
+  // Floor Plans functionality
+  floorPlans: FloorPlan[];
+  currentFloorPlan: FloorPlan | null;
+  setCurrentFloorPlan: (floorPlan: FloorPlan | null) => void;
+  createFloorPlan: (name: string, image: string, order: number) => Promise<void>;
+  updateFloorPlan: (floorPlanId: string, name: string, order: number) => Promise<void>;
+  deleteFloorPlan: (floorPlanId: string) => Promise<void>;
+  toggleFloorPlanActive: (floorPlanId: string, active: boolean) => Promise<void>;
   addProject: (project: Omit<Project, 'id'| 'deleted' | 'createdAt' | 'updatedAt' | 'companyId' | 'company' | 'createdByUserId' | 'createdByUser'>) => void;
+  updateProject: (id: string, updates: Partial<Omit<Project, 'id' | 'companyId' | 'createdByUserId' | 'deleted' | 'createdAt' | 'updatedAt'>>) => Promise<void>;
   addPoint: (point: Omit<AnchorPoint, 'id' | 'dataHora' | 'status' | 'createdByUserId' | 'lastModifiedByUserId' | 'archived'>) => void;
   editPoint: (pointId: string, updates: Partial<Omit<AnchorPoint, 'id' | 'projectId'>>) => void;
   addMultiplePoints: (points: Omit<AnchorPoint, 'id' | 'dataHora' | 'status' | 'createdByUserId' | 'lastModifiedByUserId' | 'archived'>[]) => void;
@@ -73,10 +83,14 @@ export const AnchorDataProvider = ({ children }: { children: ReactNode }) => {
   const [locations, setLocations] = useState<Location[]>([]);
   const [users, setUsers] = useState<User[]>([]);
 
+  // Floor Plans state (localStorage-based)
+  const [floorPlans, setFloorPlans] = useState<FloorPlan[]>([]);
+  const [currentFloorPlan, setCurrentFloorPlanState] = useState<FloorPlan | null>(null);
+
   // Local state for points and tests (will be migrated later)
   const [allPoints, setAllPoints] = useState<AnchorPoint[]>([]);
   const [allTests, setAllTests] = useState<AnchorTest[]>([]);
-  
+
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
   const [isLoaded, setIsLoaded] = useState(false);
 
@@ -246,41 +260,81 @@ export const AnchorDataProvider = ({ children }: { children: ReactNode }) => {
                 // Ignore cleanup errors
             }
 
-            // Load points and tests from localStorage (MIGRATION: will be moved to IndexedDB only)
-            // ✅ CORREÇÃO: Tratamento robusto de erro para prevenir QuotaExceededError
+            // ✅ MIGRATED: Load floor plans from PostgreSQL
+            let savedFloorPlans: FloorPlan[] = [];
+
+            if (savedProject?.id) {
+                try {
+                    console.time('⏱️ [DB] Load floor plans');
+                    const { getFloorPlansForProject } = await import('@/app/actions/floorplan-actions');
+
+                    savedFloorPlans = await getFloorPlansForProject(savedProject.id) as any[];
+
+                    console.timeEnd('⏱️ [DB] Load floor plans');
+                    console.log(`✅ [DB] Loaded: ${savedFloorPlans.length} floor plans from PostgreSQL`);
+                } catch (error) {
+                    logger.error('❌ Failed to load floor plans from database, using localStorage fallback:', error);
+                    // Fallback to localStorage only if DB fails
+                    try {
+                        const floorPlansStr = localStorage.getItem('anchorViewFloorPlans');
+                        if (floorPlansStr) {
+                            savedFloorPlans = JSON.parse(floorPlansStr);
+                            // Filter by current project
+                            if (savedProject?.id) {
+                                savedFloorPlans = savedFloorPlans.filter((fp: FloorPlan) => fp.projectId === savedProject.id);
+                            }
+                            logger.warn(`⚠️ Using localStorage fallback: ${savedFloorPlans.length} floor plans`);
+                        }
+                    } catch (fallbackError) {
+                        logger.error('❌ Fallback to localStorage also failed:', fallbackError);
+                    }
+                }
+            }
+
+            if (!isCancelled) setFloorPlans(savedFloorPlans);
+
+            // Set current floor plan (first active or first available)
+            const activeFloorPlan = savedFloorPlans.find(fp => fp.active) || savedFloorPlans[0] || null;
+            if (!isCancelled && activeFloorPlan) {
+                setCurrentFloorPlanState(activeFloorPlan);
+            }
+
+            // ✅ MIGRATED: Load points and tests from PostgreSQL
             let savedPoints: any[] = [];
             let savedTests: any[] = [];
 
-            try {
-                console.time('⏱️ [localStorage] Parse points & tests')
-                const pointsStr = localStorage.getItem('anchorViewPoints');
-                const testsStr = localStorage.getItem('anchorViewTests');
-
-                // Verificar tamanho antes de parsear
-                if (pointsStr && pointsStr.length < 5 * 1024 * 1024) { // Max 5MB
-                    savedPoints = JSON.parse(pointsStr);
-                } else if (pointsStr) {
-                    logger.warn(`⚠️ Points data too large (${(pointsStr.length / 1024 / 1024).toFixed(2)}MB), clearing...`);
-                    localStorage.removeItem('anchorViewPoints');
-                }
-
-                if (testsStr && testsStr.length < 5 * 1024 * 1024) { // Max 5MB
-                    savedTests = JSON.parse(testsStr);
-                } else if (testsStr) {
-                    logger.warn(`⚠️ Tests data too large (${(testsStr.length / 1024 / 1024).toFixed(2)}MB), clearing...`);
-                    localStorage.removeItem('anchorViewTests');
-                }
-
-                console.timeEnd('⏱️ [localStorage] Parse points & tests')
-                console.log(`✅ [localStorage] Loaded: ${savedPoints.length} points, ${savedTests.length} tests`)
-            } catch (error) {
-                logger.error('❌ Failed to load points/tests from localStorage:', error);
-                // Limpar dados corrompidos
+            if (savedProject?.id) {
                 try {
-                    localStorage.removeItem('anchorViewPoints');
-                    localStorage.removeItem('anchorViewTests');
-                } catch (e) {
-                    // Ignore cleanup errors
+                    console.time('⏱️ [DB] Load points & tests')
+                    const { getAnchorPointsForProject, getArchivedAnchorPointsForProject } = await import('@/app/actions/anchor-actions');
+                    const { getAnchorTestsForProject } = await import('@/app/actions/anchor-actions');
+
+                    // Load points (both active and archived)
+                    const [activePoints, archivedPoints, tests] = await Promise.all([
+                        getAnchorPointsForProject(savedProject.id),
+                        getArchivedAnchorPointsForProject(savedProject.id),
+                        getAnchorTestsForProject(savedProject.id)
+                    ]);
+
+                    savedPoints = [...activePoints, ...archivedPoints];
+                    savedTests = tests;
+
+                    console.timeEnd('⏱️ [DB] Load points & tests')
+                    console.log(`✅ [DB] Loaded: ${savedPoints.length} points, ${savedTests.length} tests from PostgreSQL`);
+                } catch (error) {
+                    logger.error('❌ Failed to load points/tests from database, using localStorage fallback:', error);
+                    // Fallback to localStorage only if DB fails
+                    try {
+                        const pointsStr = localStorage.getItem('anchorViewPoints');
+                        const testsStr = localStorage.getItem('anchorViewTests');
+
+                        if (pointsStr) savedPoints = JSON.parse(pointsStr);
+                        if (testsStr) savedTests = JSON.parse(testsStr);
+
+                        logger.warn(`⚠️ Using localStorage fallback: ${savedPoints.length} points, ${savedTests.length} tests`);
+                    } catch (fallbackError) {
+                        logger.error('❌ Fallback to localStorage also failed:', fallbackError);
+                    }
                 }
             }
 
@@ -323,6 +377,21 @@ export const AnchorDataProvider = ({ children }: { children: ReactNode }) => {
       }
     };
   }, [authUser, authCompany]); // Re-run when authentication changes
+
+  // Sync floor plans to localStorage
+  useEffect(() => {
+    if (isLoaded && currentProject?.id) {
+      try {
+        const allFloorPlans = JSON.parse(localStorage.getItem('anchorViewFloorPlans') || '[]');
+        // Remove old floor plans for this project and add current ones
+        const otherProjectFloorPlans = allFloorPlans.filter((fp: FloorPlan) => fp.projectId !== currentProject.id);
+        const updatedFloorPlans = [...otherProjectFloorPlans, ...floorPlans];
+        localStorage.setItem('anchorViewFloorPlans', JSON.stringify(updatedFloorPlans));
+      } catch (error) {
+        logger.error('Failed to save floor plans to localStorage', error);
+      }
+    }
+  }, [floorPlans, isLoaded, currentProject?.id]);
 
   // Sync state to localStorage
   useEffect(() => {
@@ -444,7 +513,30 @@ export const AnchorDataProvider = ({ children }: { children: ReactNode }) => {
       logger.error('[ERROR] addProject failed:', error);
     }
   }, [currentUser, companyId, currentProject]);
-  
+
+  const updateProject = useCallback(async (id: string, updates: Partial<Omit<Project, 'id' | 'companyId' | 'createdByUserId' | 'deleted' | 'createdAt' | 'updatedAt'>>) => {
+    logger.log('[DEBUG] updateProject called:', { id, updates });
+    if (!currentUser || !companyId) {
+      logger.error('[ERROR] updateProject: Missing currentUser or companyId');
+      return;
+    }
+    try {
+      const { updateProject: updateProjectAction } = await import('@/app/actions/project-actions');
+      const updatedProject = await updateProjectAction(id, updates);
+      if (updatedProject) {
+        logger.log('[DEBUG] Project updated successfully:', updatedProject);
+        setProjects(prev => prev.map(p => p.id === id ? updatedProject as any : p));
+        // Also update currentProject if it's the one being edited
+        if (currentProject?.id === id) {
+          setCurrentProject(updatedProject as any);
+        }
+      }
+    } catch (error) {
+      logger.error('[ERROR] updateProject failed:', error);
+      throw error;
+    }
+  }, [currentUser, companyId, currentProject]);
+
   const deleteProject = useCallback(async (id: string) => {
     logger.log('[DEBUG] deleteProject called:', { id });
 
@@ -535,143 +627,200 @@ export const AnchorDataProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [projects, currentProject, companyId]);
 
-  const addPoint = useCallback((pointData: Omit<AnchorPoint, 'id' | 'dataHora' | 'status' | 'createdByUserId' | 'lastModifiedByUserId' | 'archived'>) => {
+  const addPoint = useCallback(async (pointData: Omit<AnchorPoint, 'id' | 'dataHora' | 'status' | 'createdByUserId' | 'lastModifiedByUserId' | 'archived'>) => {
     logger.log('[DEBUG] addPoint called:', { pointData, currentUser: currentUser?.id });
-    if (!currentUser) { 
+    if (!currentUser) {
       logger.error('[ERROR] addPoint: No user selected');
-      alert("Por favor, selecione um usuário primeiro."); 
-      return; 
+      alert("Por favor, selecione um usuário primeiro.");
+      return;
     }
-    const newPoint: AnchorPoint = {
-      ...pointData,
-      id: Date.now().toString(),
-      dataHora: new Date().toISOString(),
-      status: 'Não Testado',
-      createdByUserId: currentUser.id,
-      lastModifiedByUserId: currentUser.id,
-      archived: false,
-    };
-    setAllPoints(prevPoints => [...prevPoints, newPoint]);
-    logger.log('[DEBUG] Point added successfully:', newPoint);
+
+    try {
+      // ✅ MIGRATED: Call server action
+      const { addAnchorPoint } = await import('@/app/actions/anchor-actions');
+      const newPoint = await addAnchorPoint(pointData);
+
+      // Update local state
+      setAllPoints(prevPoints => [...prevPoints, newPoint as any]);
+      logger.log('[DEBUG] Point added successfully to PostgreSQL:', newPoint);
+    } catch (error) {
+      logger.error('[ERROR] addPoint failed:', error);
+      alert('Erro ao adicionar ponto. Tente novamente.');
+    }
   }, [currentUser]);
 
-  const editPoint = useCallback((pointId: string, updates: Partial<Omit<AnchorPoint, 'id' | 'projectId'>>) => {
+  const editPoint = useCallback(async (pointId: string, updates: Partial<Omit<AnchorPoint, 'id' | 'projectId'>>) => {
       logger.log('[DEBUG] editPoint called:', { pointId, updates, currentUser: currentUser?.id });
-      if (!currentUser) { 
+      if (!currentUser) {
         logger.error('[ERROR] editPoint: No user selected');
-        alert("Por favor, selecione um usuário primeiro."); 
-        return; 
+        alert("Por favor, selecione um usuário primeiro.");
+        return;
       }
-      setAllPoints(prevPoints => prevPoints.map(p => {
-          if (p.id === pointId) {
-              const updatedPoint = { ...p, ...updates, lastModifiedByUserId: currentUser.id };
-              if(updates.localizacao) {
-                  setLastUsedLocation(updates.localizacao);
-              }
-              logger.log('[DEBUG] Point edited successfully:', updatedPoint);
-              return updatedPoint;
-          }
-          return p;
-      }));
+
+      try {
+        // ✅ MIGRATED: Call server action
+        const { updateAnchorPoint } = await import('@/app/actions/anchor-actions');
+        const updatedPoint = await updateAnchorPoint(pointId, updates);
+
+        // Update local state
+        setAllPoints(prevPoints => prevPoints.map(p =>
+          p.id === pointId ? updatedPoint as any : p
+        ));
+
+        if(updates.localizacao) {
+            setLastUsedLocation(updates.localizacao);
+        }
+
+        logger.log('[DEBUG] Point edited successfully in PostgreSQL:', updatedPoint);
+      } catch (error) {
+        logger.error('[ERROR] editPoint failed:', error);
+        alert('Erro ao editar ponto. Tente novamente.');
+      }
   }, [currentUser]);
 
-  const addMultiplePoints = useCallback((pointsData: Omit<AnchorPoint, 'id' | 'dataHora' | 'status' | 'createdByUserId' | 'lastModifiedByUserId' | 'archived'>[]) => {
+  const addMultiplePoints = useCallback(async (pointsData: Omit<AnchorPoint, 'id' | 'dataHora' | 'status' | 'createdByUserId' | 'lastModifiedByUserId' | 'archived'>[]) => {
     logger.log('[DEBUG] addMultiplePoints called:', { count: pointsData.length, currentUser: currentUser?.id });
-    if (!currentUser) { 
+    if (!currentUser) {
       logger.error('[ERROR] addMultiplePoints: No user selected');
-      alert("Por favor, selecione um usuário primeiro."); 
-      return; 
+      alert("Por favor, selecione um usuário primeiro.");
+      return;
     }
-    const newPoints = pointsData.map((pointData, index) => ({
-      ...pointData,
-      id: `${Date.now()}-${index}`,
-      dataHora: new Date().toISOString(),
-      status: 'Não Testado' as const,
-      createdByUserId: currentUser.id,
-      lastModifiedByUserId: currentUser.id,
-      archived: false,
-    }));
-    setAllPoints(prev => [...prev, ...newPoints]);
-    if (newPoints.length > 0) {
+
+    try {
+      // ✅ MIGRATED: Call server action for each point
+      const { addAnchorPoint } = await import('@/app/actions/anchor-actions');
+
+      const newPoints = await Promise.all(
+        pointsData.map(pointData => addAnchorPoint(pointData))
+      );
+
+      // Update local state
+      setAllPoints(prev => [...prev, ...newPoints as any[]]);
+
+      if (newPoints.length > 0) {
         setLastUsedLocation(newPoints[newPoints.length - 1].localizacao);
+      }
+
+      logger.log('[DEBUG] Multiple points added successfully to PostgreSQL:', newPoints.length);
+    } catch (error) {
+      logger.error('[ERROR] addMultiplePoints failed:', error);
+      alert('Erro ao adicionar pontos. Tente novamente.');
     }
-    logger.log('[DEBUG] Multiple points added successfully:', newPoints.length);
   }, [currentUser]);
 
-  const updatePointsAndAddTest = useCallback((pontoId: string, testData: Omit<AnchorTestResult, 'id' | 'dataHora' | 'pontoId' | 'createdByUserId'>, pointUpdates: Partial<AnchorPoint>) => {
+  const updatePointsAndAddTest = useCallback(async (pontoId: string, testData: Omit<AnchorTestResult, 'id' | 'dataHora' | 'pontoId' | 'createdByUserId'>, pointUpdates: Partial<AnchorPoint>) => {
      logger.log('[DEBUG] updatePointsAndAddTest called:', { pontoId, testData, pointUpdates });
-     if (!currentUser) { 
+     if (!currentUser) {
        logger.error('[ERROR] updatePointsAndAddTest: No user selected');
-       alert("Por favor, selecione um usuário primeiro."); 
-       return; 
+       alert("Por favor, selecione um usuário primeiro.");
+       return;
      }
-    const newTest: AnchorTest = { ...testData, id: Date.now().toString(), pontoId: pontoId, dataHora: new Date().toISOString(), createdByUserId: currentUser.id };
-    setAllTests(prevTests => [...prevTests, newTest]);
-    setAllPoints(prevPoints => prevPoints.map(p => {
-        if (p.id === newTest.pontoId) {
+
+    try {
+      // ✅ MIGRATED: Call server action to add test (auto-updates point status)
+      const { addAnchorTest } = await import('@/app/actions/anchor-actions');
+      const newTest = await addAnchorTest({ ...testData, pontoId });
+
+      // Update local state for test
+      setAllTests(prevTests => [...prevTests, newTest as any]);
+
+      // Update local state for point (server already updated status, but apply manual updates too)
+      setAllPoints(prevPoints => prevPoints.map(p => {
+        if (p.id === pontoId) {
           const hasUpdates = Object.keys(pointUpdates).length > 0;
-          return { ...p, ...(hasUpdates ? pointUpdates : {}), status: newTest.resultado, lastModifiedByUserId: currentUser.id };
+          return { ...p, ...(hasUpdates ? pointUpdates : {}), status: newTest.resultado as any, lastModifiedByUserId: currentUser.id };
         }
         return p;
-      })
-    );
-    logger.log('[DEBUG] Point updated and test added successfully');
+      }));
+
+      logger.log('[DEBUG] Point updated and test added successfully to PostgreSQL');
+    } catch (error) {
+      logger.error('[ERROR] updatePointsAndAddTest failed:', error);
+      alert('Erro ao adicionar teste. Tente novamente.');
+    }
   }, [currentUser]);
   
-  const addFinishedPhotoToTest = useCallback((testId: string, photoDataUrl: string) => {
+  const addFinishedPhotoToTest = useCallback(async (testId: string, photoDataUrl: string) => {
     logger.log('[DEBUG] addFinishedPhotoToTest called:', { testId, hasPhoto: !!photoDataUrl });
-    setAllTests(prevTests => prevTests.map(t => t.id === testId ? { ...t, fotoPronto: photoDataUrl, dataFotoPronto: new Date().toISOString() } : t));
-    logger.log('[DEBUG] Finished photo added to test successfully');
+
+    try {
+      // ✅ MIGRATED: Call server action to update test
+      const { updateAnchorTest } = await import('@/app/actions/anchor-actions');
+      const updatedTest = await updateAnchorTest(testId, {
+        fotoPronto: photoDataUrl,
+        dataFotoPronto: new Date().toISOString()
+      });
+
+      // Update local state
+      setAllTests(prevTests => prevTests.map(t => t.id === testId ? updatedTest as any : t));
+      logger.log('[DEBUG] Finished photo added to test successfully in PostgreSQL');
+    } catch (error) {
+      logger.error('[ERROR] addFinishedPhotoToTest failed:', error);
+      alert('Erro ao adicionar foto final. Tente novamente.');
+    }
   }, []);
   
-  const updatePointAndAddOrUpdateTest = useCallback((pointId: string, pointUpdates: Partial<Omit<AnchorPoint, 'id' | 'projectId'>>, testData?: Omit<AnchorTestResult, 'id' | 'dataHora' | 'pontoId' | 'createdByUserId'>) => {
+  const updatePointAndAddOrUpdateTest = useCallback(async (pointId: string, pointUpdates: Partial<Omit<AnchorPoint, 'id' | 'projectId'>>, testData?: Omit<AnchorTestResult, 'id' | 'dataHora' | 'pontoId' | 'createdByUserId'>) => {
     logger.log('[DEBUG] updatePointAndAddOrUpdateTest called:', { pointId, pointUpdates, hasTestData: !!testData });
-    if (!currentUser) { 
+    if (!currentUser) {
       logger.error('[ERROR] updatePointAndAddOrUpdateTest: No user selected');
-      alert("Por favor, selecione um usuário primeiro."); 
-      return; 
-    }
-    
-    let newStatus: 'Aprovado' | 'Reprovado' | 'Não Testado' | undefined = undefined;
-    
-    // If test data is provided, create a new test and update status
-    if (testData) {
-      const newTest: AnchorTest = { 
-        ...testData, 
-        id: Date.now().toString(), 
-        pontoId: pointId, 
-        dataHora: new Date().toISOString(), 
-        createdByUserId: currentUser.id 
-      };
-      setAllTests(prevTests => [...prevTests, newTest]);
-      newStatus = newTest.resultado;
+      alert("Por favor, selecione um usuário primeiro.");
+      return;
     }
 
-    // Update the point with new data and potentially new status
-    setAllPoints(prevPoints => prevPoints.map(p => {
-        if (p.id === pointId) {
-            const finalUpdates = { ...p, ...pointUpdates, lastModifiedByUserId: currentUser.id };
-            if (newStatus) {
-                finalUpdates.status = newStatus;
-            }
-            if (pointUpdates.localizacao) {
-                setLastUsedLocation(pointUpdates.localizacao);
-            }
-            logger.log('[DEBUG] Point and test updated successfully:', finalUpdates);
-            return finalUpdates;
-        }
-        return p;
-    }));
+    try {
+      let newStatus: 'Aprovado' | 'Reprovado' | 'Não Testado' | undefined = undefined;
+
+      // ✅ MIGRATED: If test data is provided, create a new test
+      if (testData) {
+        const { addAnchorTest } = await import('@/app/actions/anchor-actions');
+        const newTest = await addAnchorTest({ ...testData, pontoId: pointId });
+        setAllTests(prevTests => [...prevTests, newTest as any]);
+        newStatus = newTest.resultado as any;
+      }
+
+      // ✅ MIGRATED: Update the point
+      const { updateAnchorPoint } = await import('@/app/actions/anchor-actions');
+      const finalUpdates = { ...pointUpdates };
+      if (newStatus) {
+        finalUpdates.status = newStatus;
+      }
+
+      const updatedPoint = await updateAnchorPoint(pointId, finalUpdates);
+
+      // Update local state
+      setAllPoints(prevPoints => prevPoints.map(p => p.id === pointId ? updatedPoint as any : p));
+
+      if (pointUpdates.localizacao) {
+        setLastUsedLocation(pointUpdates.localizacao);
+      }
+
+      logger.log('[DEBUG] Point and test updated successfully in PostgreSQL:', updatedPoint);
+    } catch (error) {
+      logger.error('[ERROR] updatePointAndAddOrUpdateTest failed:', error);
+      alert('Erro ao atualizar ponto/teste. Tente novamente.');
+    }
   }, [currentUser]);
 
-  const deletePoint = useCallback((id: string) => {
+  const deletePoint = useCallback(async (id: string) => {
     logger.log('[DEBUG] deletePoint called:', { id, currentUser: currentUser?.id });
     if (!currentUser) {
       logger.error('[ERROR] deletePoint: No user selected');
       return;
     }
-    setAllPoints(prev => prev.map(p => p.id === id ? { ...p, archived: true, archivedAt: new Date().toISOString(), lastModifiedByUserId: currentUser.id } : p));
-    logger.log('[DEBUG] Point archived successfully');
+
+    try {
+      // ✅ MIGRATED: Call server action to archive point (soft delete)
+      const { archiveAnchorPoint } = await import('@/app/actions/anchor-actions');
+      const archivedPoint = await archiveAnchorPoint(id);
+
+      // Update local state
+      setAllPoints(prev => prev.map(p => p.id === id ? archivedPoint as any : p));
+      logger.log('[DEBUG] Point archived successfully in PostgreSQL:', archivedPoint);
+    } catch (error) {
+      logger.error('[ERROR] deletePoint failed:', error);
+      alert('Erro ao arquivar ponto. Tente novamente.');
+    }
   }, [currentUser]);
   
   const addLocation = useCallback(async (locationName: string) => {
@@ -758,7 +907,183 @@ export const AnchorDataProvider = ({ children }: { children: ReactNode }) => {
     setLineToolPreviewPoints([]);
     setLineToolModeState(false);
   }, []);
-  
+
+  // ===== FLOOR PLAN CRUD OPERATIONS =====
+
+  /**
+   * Creates a new floor plan for the current project
+   */
+  const createFloorPlan = useCallback(async (name: string, image: string, order: number) => {
+    logger.log('[DEBUG] createFloorPlan called:', { name, order, projectId: currentProject?.id });
+
+    if (!currentProject) {
+      logger.error('[ERROR] createFloorPlan: No project selected');
+      return;
+    }
+
+    if (!currentUser) {
+      logger.error('[ERROR] createFloorPlan: No user selected');
+      return;
+    }
+
+    try {
+      // ✅ MIGRATED: Call server action to create floor plan
+      const { createFloorPlan: createFloorPlanAction } = await import('@/app/actions/floorplan-actions');
+      const newFloorPlan = await createFloorPlanAction(currentProject.id, name, image, order);
+
+      if (!newFloorPlan) {
+        throw new Error('Failed to create floor plan');
+      }
+
+      // Update local state
+      setFloorPlans(prev => [...prev, newFloorPlan as any]);
+
+      // If this is the first floor plan, set it as current
+      if (floorPlans.length === 0) {
+        setCurrentFloorPlanState(newFloorPlan as any);
+      }
+
+      logger.log('[DEBUG] Floor plan created successfully in PostgreSQL:', newFloorPlan);
+    } catch (error) {
+      logger.error('[ERROR] createFloorPlan failed:', error);
+      alert('Erro ao criar planta baixa. Tente novamente.');
+      throw error;
+    }
+  }, [currentProject, currentUser, floorPlans]);
+
+  /**
+   * Updates an existing floor plan
+   */
+  const updateFloorPlan = useCallback(async (floorPlanId: string, name: string, order: number) => {
+    logger.log('[DEBUG] updateFloorPlan called:', { floorPlanId, name, order });
+
+    if (!currentUser) {
+      logger.error('[ERROR] updateFloorPlan: No user selected');
+      return;
+    }
+
+    try {
+      // ✅ MIGRATED: Call server action to update floor plan
+      const { updateFloorPlan: updateFloorPlanAction } = await import('@/app/actions/floorplan-actions');
+      const updatedFloorPlan = await updateFloorPlanAction(floorPlanId, name, order);
+
+      if (!updatedFloorPlan) {
+        throw new Error('Failed to update floor plan');
+      }
+
+      // Update local state
+      setFloorPlans(prev => prev.map(fp => fp.id === floorPlanId ? updatedFloorPlan as any : fp));
+
+      // Also update currentFloorPlan if it's the one being edited
+      if (currentFloorPlan?.id === floorPlanId) {
+        setCurrentFloorPlanState(updatedFloorPlan as any);
+      }
+
+      logger.log('[DEBUG] Floor plan updated successfully in PostgreSQL:', updatedFloorPlan);
+    } catch (error) {
+      logger.error('[ERROR] updateFloorPlan failed:', error);
+      alert('Erro ao atualizar planta baixa. Tente novamente.');
+      throw error;
+    }
+  }, [currentUser, currentFloorPlan]);
+
+  /**
+   * Deletes a floor plan and cascades to remove associated points
+   */
+  const deleteFloorPlan = useCallback(async (floorPlanId: string) => {
+    logger.log('[DEBUG] deleteFloorPlan called:', { floorPlanId });
+
+    if (!currentUser) {
+      logger.error('[ERROR] deleteFloorPlan: No user selected');
+      return;
+    }
+
+    try {
+      // ✅ MIGRATED: Call server action to delete floor plan (handles cascade on server)
+      const { deleteFloorPlan: deleteFloorPlanAction } = await import('@/app/actions/floorplan-actions');
+      const success = await deleteFloorPlanAction(floorPlanId);
+
+      if (!success) {
+        throw new Error('Failed to delete floor plan');
+      }
+
+      // Update local state - remove points associated with this floor plan
+      const pointsToDelete = allPoints.filter(p => p.floorPlanId === floorPlanId);
+      const pointIdsToDelete = pointsToDelete.map(p => p.id);
+
+      logger.log(`[DEBUG] Removing ${pointsToDelete.length} points from local state for floor plan ${floorPlanId}`);
+
+      setAllPoints(prev => prev.filter(p => p.floorPlanId !== floorPlanId));
+      setAllTests(prev => prev.filter(t => !pointIdsToDelete.includes(t.pontoId)));
+
+      // Remove floor plan from local state
+      const remainingFloorPlans = floorPlans.filter(fp => fp.id !== floorPlanId);
+      setFloorPlans(remainingFloorPlans);
+
+      // If deleted floor plan was current, switch to another one
+      if (currentFloorPlan?.id === floorPlanId) {
+        const nextFloorPlan = remainingFloorPlans.find(fp => fp.active) || remainingFloorPlans[0] || null;
+        setCurrentFloorPlanState(nextFloorPlan);
+      }
+
+      logger.log('[DEBUG] Floor plan deleted successfully from PostgreSQL. Cascade completed.');
+    } catch (error) {
+      logger.error('[ERROR] deleteFloorPlan failed:', error);
+      alert('Erro ao deletar planta baixa. Tente novamente.');
+      throw error;
+    }
+  }, [currentUser, floorPlans, currentFloorPlan, allPoints]);
+
+  /**
+   * Toggles the active state of a floor plan
+   */
+  const toggleFloorPlanActive = useCallback(async (floorPlanId: string, active: boolean) => {
+    logger.log('[DEBUG] toggleFloorPlanActive called:', { floorPlanId, active });
+
+    if (!currentUser) {
+      logger.error('[ERROR] toggleFloorPlanActive: No user selected');
+      return;
+    }
+
+    try {
+      // ✅ MIGRATED: Call server action to toggle floor plan active state
+      const { toggleFloorPlanActive: toggleFloorPlanActiveAction } = await import('@/app/actions/floorplan-actions');
+      const updatedFloorPlan = await toggleFloorPlanActiveAction(floorPlanId, active);
+
+      if (!updatedFloorPlan) {
+        throw new Error('Failed to toggle floor plan active state');
+      }
+
+      // Update local state
+      setFloorPlans(prev => prev.map(fp => fp.id === floorPlanId ? updatedFloorPlan as any : fp));
+
+      // If activating this floor plan, set it as current
+      if (active) {
+        setCurrentFloorPlanState(updatedFloorPlan as any);
+      } else if (currentFloorPlan?.id === floorPlanId) {
+        // If deactivating current floor plan, switch to first active one
+        const nextActive = floorPlans.find(f => f.id !== floorPlanId && f.active) || floorPlans.find(f => f.id !== floorPlanId) || null;
+        setCurrentFloorPlanState(nextActive);
+      }
+
+      logger.log('[DEBUG] Floor plan active state toggled in PostgreSQL:', updatedFloorPlan);
+    } catch (error) {
+      logger.error('[ERROR] toggleFloorPlanActive failed:', error);
+      alert('Erro ao alternar estado da planta baixa. Tente novamente.');
+      throw error;
+    }
+  }, [currentUser, floorPlans, currentFloorPlan]);
+
+  /**
+   * Sets the current floor plan
+   */
+  const setCurrentFloorPlan = useCallback((floorPlan: FloorPlan | null) => {
+    logger.log('[DEBUG] setCurrentFloorPlan called:', { floorPlanId: floorPlan?.id, floorPlanName: floorPlan?.name });
+    setCurrentFloorPlanState(floorPlan);
+  }, []);
+
+  // ===== END FLOOR PLAN CRUD OPERATIONS =====
+
   const value = {
     projects,
     points: projectFilteredPoints,
@@ -770,7 +1095,18 @@ export const AnchorDataProvider = ({ children }: { children: ReactNode }) => {
     locations,
     lastUsedLocation,
     setLastUsedLocation,
+
+    // Floor Plans
+    floorPlans,
+    currentFloorPlan,
+    setCurrentFloorPlan,
+    createFloorPlan,
+    updateFloorPlan,
+    deleteFloorPlan,
+    toggleFloorPlanActive,
+
     addProject,
+    updateProject,
     addPoint,
     editPoint,
     addMultiplePoints,

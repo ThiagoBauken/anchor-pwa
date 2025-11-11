@@ -1,6 +1,6 @@
 "use client";
 
-import { useOfflineData } from '@/context/OfflineDataContext';
+import { useAnchorData } from '@/context/AnchorDataContext';
 import { PointCard } from './point-card';
 import { ScrollArea } from './ui/scroll-area';
 import { Button } from './ui/button';
@@ -15,7 +15,7 @@ const naturalSort = (a, b) => {
 
 
 export function PointsGallery({ searchQuery, locationFilter }: { searchQuery: string, locationFilter: string }) {
-  const { points, setActiveTab, showArchived } = useOfflineData();
+  const { points, setActiveTab, showArchived } = useAnchorData();
 
   const filteredPoints = useMemo(() => {
     let pointsToFilter = [...points];

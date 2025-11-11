@@ -7,7 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { useOfflineData } from '@/context/OfflineDataContext';
+import { useAnchorData } from '@/context/AnchorDataContext';
 import { useUnifiedAuthSafe } from '@/context/UnifiedAuthContext';
 import { Building2, Plus, Trash2, Eye, Edit, Trash, Download, TestTube } from 'lucide-react';
 import {
@@ -37,7 +37,7 @@ interface TeamPermissionsManagerProps {
 
 export default function TeamPermissionsManager({ teamId, teamName, onUpdate }: TeamPermissionsManagerProps) {
   const { toast } = useToast();
-  const { projects } = useOfflineData();
+  const { projects } = useAnchorData();
   const { user: currentUser } = useUnifiedAuthSafe();
   const [permissions, setPermissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);

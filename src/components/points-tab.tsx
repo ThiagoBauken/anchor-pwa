@@ -1,6 +1,6 @@
 "use client";
 
-import { useOfflineData } from '@/context/OfflineDataContext';
+import { useAnchorData } from '@/context/AnchorDataContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { PointsGallery } from './points-gallery';
 import { useState } from 'react';
@@ -15,35 +15,13 @@ import { CreateProgressionDialog } from './create-progression-dialog';
 import { Hash, Search, MapPin } from 'lucide-react';
 
 export function PointsTab() {
-  const { currentProject, locations, isLoading, currentUser, showArchived, setShowArchived } = useOfflineData();
+  const { currentProject, locations, currentUser, showArchived, setShowArchived } = useAnchorData();
   const [searchQuery, setSearchQuery] = useState('');
   const [locationFilter, setLocationFilter] = useState('all');
   const [showProgressionDialog, setShowProgressionDialog] = useState(false);
 
   if (!currentProject) {
     return <div>Selecione um projeto</div>;
-  }
-
-  if (isLoading) {
-    return (
-      <div className="mt-4">
-        <Card className="bg-card/90 backdrop-blur-sm">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <LoadingSpinner size="sm" />
-              <CardTitle>Carregando pontos...</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {Array.from({ length: 6 }).map((_, index) => (
-                <SkeletonPointCard key={index} />
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
   }
 
   return (

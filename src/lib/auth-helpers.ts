@@ -5,36 +5,61 @@
  * em server actions (funções 'use server')
  */
 
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { cookies } from 'next/headers';
+import jwt from 'jsonwebtoken';
 import { prisma } from '@/lib/prisma';
 import type { User } from '@/types';
 
+// JWT Secret must be the same as in auth.ts
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET is required');
+}
+
 /**
- * Busca o usuário autenticado da sessão atual
- * Retorna null se não houver sessão
+ * Busca o usuário autenticado do cookie JWT
+ * Retorna null se não houver sessão válida
  */
 export async function getAuthenticatedUser(): Promise<User | null> {
   try {
-    console.log('[AuthHelpers] Attempting to get server session...');
-    const session = await getServerSession(authOptions);
+    console.log('[AuthHelpers] Attempting to get auth token from cookies...');
 
-    if (!session?.user?.email) {
-      console.log('[AuthHelpers] No session or email found');
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth-token');
+
+    if (!token) {
+      console.log('[AuthHelpers] No auth-token cookie found');
       return null;
     }
 
-    console.log('[AuthHelpers] Session found for email:', session.user.email);
+    console.log('[AuthHelpers] Auth token found, verifying...');
 
+    // Verify JWT token
+    let decoded: any;
+    try {
+      decoded = jwt.verify(token.value, JWT_SECRET);
+    } catch (jwtError) {
+      console.error('[AuthHelpers] JWT verification failed:', jwtError);
+      return null;
+    }
+
+    if (!decoded || !decoded.id) {
+      console.log('[AuthHelpers] Invalid token payload');
+      return null;
+    }
+
+    console.log('[AuthHelpers] Token verified for user ID:', decoded.id);
+
+    // Get user from database
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
+      where: { id: decoded.id },
       include: {
         company: true
       }
     });
 
-    if (!user) {
-      console.log('[AuthHelpers] User not found in database for email:', session.user.email);
+    if (!user || !user.active) {
+      console.log('[AuthHelpers] User not found or inactive:', decoded.id);
       return null;
     }
 
@@ -52,6 +77,7 @@ export async function getAuthenticatedUser(): Promise<User | null> {
       role: user.role as any,
       companyId: user.companyId,
       company: user.company as any,
+      active: user.active,
       createdAt: user.createdAt.toISOString(),
       updatedAt: user.updatedAt.toISOString()
     } as User;

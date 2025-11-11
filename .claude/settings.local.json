@@ -1,14 +1,15 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx prisma migrate status)"
+      "Bash(npx prisma migrate status)",
+      "Bash(npm run typecheck:*)"
     ],
+    "deny": [],
+    "ask": [],
     "defaultMode": "acceptEdits",
     "additionalDirectories": [
       "D:\\",
       "D:\\d D:"
-    ],
-    "deny": [],
-    "ask": []
+    ]
   }
 }

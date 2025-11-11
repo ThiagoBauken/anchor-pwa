@@ -1,9 +1,9 @@
 
 "use client";
 
-import { useOfflineData } from "@/context/OfflineDataContext";
+import { useAnchorData } from "@/context/AnchorDataContext";
 import { useUnifiedAuthSafe } from "@/context/UnifiedAuthContext";
-import { Mountain, ClipboardList, Map, TestTubeDiagonal, Users, FolderKanban, LayoutDashboard, ExternalLink, LogOut, MapPin, Shield, UsersRound, CloudUpload, Building2, Store } from "lucide-react";
+import { Mountain, ClipboardList, Map, TestTubeDiagonal, Users, FolderKanban, LayoutDashboard, ExternalLink, LogOut, MapPin, Shield, UsersRound, Building2, Store } from "lucide-react";
 import { ThemeToggle } from "./ui/theme-toggle";
 import { LoadingOverlay } from "./ui/loading-spinner";
 import { ResponsiveContainer, ResponsiveStack } from "./ui/responsive-grid";
@@ -18,7 +18,6 @@ import { UsersTab } from "./users-tab";
 import { ProjectsTab } from "./projects-tab";
 import { TeamsTab } from "./teams-tab";
 import { MarketplaceTab } from "./marketplace-tab";
-import PhotoSyncManager from "./photo-sync-manager";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { DashboardTab } from "./dashboard-tab";
 import { Button } from "./ui/button";
@@ -29,10 +28,8 @@ import { InteractiveMap } from "./interactive-map";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { InspectionRemindersPopover } from "./inspection-reminders-popover";
 import { ProjectInvitationsPopover } from "./project-invitations-popover";
-import { SyncStatusIndicator } from "./sync-status-indicator";
 import { TrialBanner } from "./trial-banner";
 import { TrialExpiredOverlay } from "./trial-expired-overlay";
-import { ForceSwUpdateButton } from "./force-sw-update-button";
 
 function UserProfile() {
   const { user: currentUser, logout } = useUnifiedAuthSafe();
@@ -60,7 +57,6 @@ function UserProfile() {
       </div>
       <div className="flex items-center gap-2">
         <ThemeToggle />
-        <ForceSwUpdateButton />
         {isSuperAdmin && (
           <Button variant="ghost" size="icon" onClick={handleAdminDashboard} title="Dashboard Admin">
             <Shield className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
@@ -75,7 +71,7 @@ function UserProfile() {
 }
 
 function CurrentProjectSelector() {
-  const { projects, currentProject, setCurrentProject } = useOfflineData();
+  const { projects, currentProject, setCurrentProject } = useAnchorData();
 
   if (projects.length === 0) return null;
 
@@ -101,7 +97,7 @@ function CurrentProjectSelector() {
 }
 
 function AnchorViewContent() {
-  const { currentProject, setActiveTab, activeTab, isLoading, currentUser } = useOfflineData();
+  const { currentProject, setActiveTab, activeTab, currentUser } = useAnchorData();
 
   const navItems = [
       { value: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, disabled: !currentProject },
@@ -113,13 +109,12 @@ function AnchorViewContent() {
       { value: 'reports', label: 'Relatórios', icon: ClipboardList, disabled: !currentProject },
       { value: 'teams', label: 'Equipes', icon: UsersRound, disabled: false },
       { value: 'marketplace', label: 'Marketplace', icon: Store, disabled: false, visible: currentUser?.role === 'company_admin' || currentUser?.role === 'superadmin' },
-      { value: 'sync', label: 'Sync', icon: CloudUpload, disabled: false },
       { value: 'users', label: 'Usuários', icon: Users, disabled: false }, // Will be adapted for tenants
   ];
 
   return (
     <ResponsiveContainer className="p-4 md:p-8 relative">
-      <LoadingOverlay isLoading={isLoading} text="Carregando dados...">
+      <LoadingOverlay isLoading={false} text="Carregando dados...">
         <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-primary/10 rounded-lg">
@@ -136,7 +131,6 @@ function AnchorViewContent() {
           </div>
 
         <div className="flex items-center gap-2 self-end sm:self-center">
-            <SyncStatusIndicator />
             <InspectionRemindersPopover />
             <ProjectInvitationsPopover />
             <div className="hidden sm:block">
@@ -204,9 +198,6 @@ function AnchorViewContent() {
         <TabsContent value="marketplace" role="tabpanel" aria-labelledby="marketplace-tab">
           <MarketplaceTab />
         </TabsContent>
-        <TabsContent value="sync" role="tabpanel" aria-labelledby="sync-tab">
-          <PhotoSyncManager />
-        </TabsContent>
         <TabsContent value="users" role="tabpanel" aria-labelledby="users-tab">
           <UsersTab />
         </TabsContent>
@@ -217,7 +208,7 @@ function AnchorViewContent() {
 }
 
 function ProjectNotSelected({ isDashboard = false }) {
-    const { setActiveTab } = useOfflineData();
+    const { setActiveTab } = useAnchorData();
     return (
         <Card className="mt-4 bg-card/80 backdrop-blur-sm border-white/10">
             <CardContent className="p-8 text-center flex flex-col items-center gap-4">

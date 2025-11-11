@@ -4,7 +4,7 @@
 import { useForm, SubmitHandler, Controller } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useOfflineData } from "@/context/OfflineDataContext";
+import { useAnchorData } from "@/context/AnchorDataContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -46,23 +46,23 @@ interface PointFormProps {
 }
 
 export function PointForm({ pointToEdit, initialX = 0, initialY = 0, onPointAdded, onPointEdited }: PointFormProps) {
-  const { 
-    createPoint, updatePoint, currentProject, points, locations,
-    currentUser, lastSelectedLocation, lastInstallationDate,
-    setLastSelectedLocation, setLastInstallationDate
-  } = useOfflineData();
+  const {
+    addPoint, editPoint, currentProject, points, locations,
+    currentUser, lastUsedLocation, installationDate,
+    setLastUsedLocation, setInstallationDate
+  } = useAnchorData();
   const { toast } = useToast();
   
   const isEditMode = !!pointToEdit;
   const [currentLocation, setCurrentLocation] = useState(
-    lastSelectedLocation || (locations.length > 0 ? locations[0].name : '')
+    lastUsedLocation || (locations.length > 0 ? locations[0].name : '')
   );
 
   const getNextPointNumber = (localizacao?: string) => {
     if (!points || points.length === 0) return "1";
     
     // Se uma localização específica for fornecida, use ela; senão use a última selecionada
-    const targetLocation = localizacao || currentLocation || lastSelectedLocation || (locations.length > 0 ? locations[0].name : '');
+    const targetLocation = localizacao || currentLocation || lastUsedLocation || (locations.length > 0 ? locations[0].name : '');
     
     console.log('🔍 getNextPointNumber chamado:', {
       localizacao,
@@ -113,11 +113,11 @@ export function PointForm({ pointToEdit, initialX = 0, initialY = 0, onPointAdde
         posicaoX: pointToEdit.posicaoX,
         posicaoY: pointToEdit.posicaoY,
     } : {
-        numeroPonto: getNextPointNumber(lastSelectedLocation || (locations.length > 0 ? locations[0].name : '')),
+        numeroPonto: getNextPointNumber(lastUsedLocation || (locations.length > 0 ? locations[0].name : '')),
         posicaoX: initialX,
         posicaoY: initialY,
-        dataInstalacao: lastInstallationDate || new Date(),
-        localizacao: lastSelectedLocation || (locations.length > 0 ? locations[0].name : ''),
+        dataInstalacao: installationDate || new Date(),
+        localizacao: lastUsedLocation || (locations.length > 0 ? locations[0].name : ''),
         numeroLacre: '',
         tipoEquipamento: currentProject?.dispositivoDeAncoragemPadrao || '',
         frequenciaInspecaoMeses: 12,
@@ -151,13 +151,13 @@ export function PointForm({ pointToEdit, initialX = 0, initialY = 0, onPointAdde
   // Sincronizar currentLocation quando o formulário for inicializado
   useEffect(() => {
     if (!isEditMode) {
-      const initialLocation = lastSelectedLocation || (locations.length > 0 ? locations[0].name : '');
+      const initialLocation = lastUsedLocation || (locations.length > 0 ? locations[0].name : '');
       if (initialLocation && initialLocation !== currentLocation) {
         console.log('🏁 Sincronizando localização inicial:', { initialLocation, currentLocation });
         setCurrentLocation(initialLocation);
       }
     }
-  }, [lastSelectedLocation, locations, isEditMode, currentLocation]);
+  }, [lastUsedLocation, locations, isEditMode, currentLocation]);
   
 
 
@@ -187,8 +187,7 @@ export function PointForm({ pointToEdit, initialX = 0, initialY = 0, onPointAdde
     };
 
     if (isEditMode) {
-        updatePoint({
-            ...pointToEdit,
+        editPoint(pointToEdit!.id, {
             ...pointData,
             lastModifiedByUserId: currentUser?.id
         });
@@ -199,7 +198,7 @@ export function PointForm({ pointToEdit, initialX = 0, initialY = 0, onPointAdde
         });
         if (onPointEdited) onPointEdited();
     } else {
-        createPoint({
+        addPoint({
             ...pointData,
             projectId: currentProject.id,
             createdByUserId: currentUser?.id,
@@ -213,10 +212,10 @@ export function PointForm({ pointToEdit, initialX = 0, initialY = 0, onPointAdde
         });
         
         // Save current selection for next point
-        setLastSelectedLocation(data.localizacao);
+        setLastUsedLocation(data.localizacao);
         setCurrentLocation(data.localizacao); // Atualizar estado local também
         if (data.dataInstalacao) {
-            setLastInstallationDate(data.dataInstalacao);
+            setInstallationDate(data.dataInstalacao);
         }
         
         // Reset form for next point, keeping some fields
@@ -257,7 +256,7 @@ export function PointForm({ pointToEdit, initialX = 0, initialY = 0, onPointAdde
                         field.onChange(value);
                         setCurrentLocation(value); // Atualizar estado local
                         if (!isEditMode) {
-                            setLastSelectedLocation(value); // Save for next point
+                            setLastUsedLocation(value); // Save for next point
                         }
                     }} value={field.value}>
                     <SelectTrigger>
@@ -317,7 +316,7 @@ export function PointForm({ pointToEdit, initialX = 0, initialY = 0, onPointAdde
                             onSelect={(date) => {
                                 field.onChange(date); // Update form state immediately
                                 if (!isEditMode && date) {
-                                  setLastInstallationDate(date); // Update context state for next point
+                                  setInstallationDate(date); // Update context state for next point
                                 }
                             }}
                             initialFocus

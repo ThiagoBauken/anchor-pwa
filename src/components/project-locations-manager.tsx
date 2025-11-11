@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useMemo } from 'react';
-import { useOfflineData } from '@/context/OfflineDataContext';
-import { useOfflineAuthSafe } from '@/context/OfflineAuthContext';
+import { useAnchorData } from '@/context/AnchorDataContext';
+import { useUnifiedAuthSafe } from '@/context/UnifiedAuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -28,8 +28,8 @@ const MARKER_SHAPES: { value: MarkerShape; label: string; icon: React.ReactNode 
 ];
 
 export function ProjectLocationsManager({ projectId, projectName }: ProjectLocationsManagerProps) {
-    const { locations, createLocation, updateLocation, deleteLocation, points } = useOfflineData();
-    const { currentUser } = useOfflineAuthSafe();
+    const { locations, addLocation, updateLocationShape, deleteLocation, points } = useAnchorData();
+    const { user: currentUser } = useUnifiedAuthSafe();
     const { toast } = useToast();
     
     // Estados do formulário
@@ -90,12 +90,7 @@ export function ProjectLocationsManager({ projectId, projectName }: ProjectLocat
         }
 
         try {
-            await createLocation({
-                name: newLocationName.trim(),
-                markerShape: newLocationShape,
-                projectId: projectId,
-                companyId: currentUser.companyId
-            });
+            await addLocation(newLocationName.trim());
             
             toast({
                 title: "Sucesso!",
@@ -135,11 +130,7 @@ export function ProjectLocationsManager({ projectId, projectName }: ProjectLocat
         }
         
         try {
-            await updateLocation({
-                ...editingLocation,
-                name: newLocationName.trim(),
-                markerShape: newLocationShape
-            });
+            await updateLocationShape(editingLocation.id, newLocationShape);
             
             toast({
                 title: "Sucesso!",

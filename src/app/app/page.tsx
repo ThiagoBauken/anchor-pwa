@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUnifiedAuthSafe } from '@/context/UnifiedAuthContext';
 import { AnchorView } from "@/components/anchor-view";
-import { OfflineStatus } from '@/components/offline-status';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function AppPage() {
@@ -45,17 +44,7 @@ export default function AppPage() {
 
   return (
     <main className="flex min-h-screen flex-col">
-      {/* Offline Status Bar */}
-      <div className="sticky top-0 z-50 bg-white border-b">
-        <div className="container mx-auto px-4 py-2">
-          <OfflineStatus compact={true} />
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="flex-1">
-        <AnchorView />
-      </div>
+      <AnchorView />
     </main>
   );
 }

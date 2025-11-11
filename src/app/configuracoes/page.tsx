@@ -15,7 +15,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Building2, UserCheck, FileText, Settings, Globe, Shield } from 'lucide-react';
-import { PwaControlPanel } from '@/components/pwa-control-panel';
 
 export default function ConfiguracoesPage() {
   const { currentUser } = useAnchorData();
@@ -527,11 +526,6 @@ export default function ConfiguracoesPage() {
               </div>
             </CardContent>
           </Card>
-
-          {/* PWA CONTROL PANEL */}
-          <div className="mt-6">
-            <PwaControlPanel />
-          </div>
         </TabsContent>
       </Tabs>
 

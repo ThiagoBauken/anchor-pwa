@@ -1,8 +1,8 @@
 
 "use client";
 
-import { useOfflineData } from '@/context/OfflineDataContext';
 import { useMemo, useState, useRef, WheelEvent, MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent, useEffect, useCallback } from 'react';
+import { useAnchorData } from '@/context/AnchorDataContext';
 import type { AnchorPoint, MarkerShape } from '@/types';
 import Image from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
@@ -89,8 +89,8 @@ export function InteractiveMap({
     inspectionFlags, currentUser, currentProject,
     lineToolMode, setLineToolStartPoint, setLineToolEndPoint,
     lineToolStartPointId, lineToolEndPointId, getPointById,
-    lineToolPreviewPoints, locations, updatePoint
-  } = useOfflineData();
+    lineToolPreviewPoints, locations, editPoint
+  } = useAnchorData();
 
   const { toast } = useToast();
 
@@ -248,7 +248,7 @@ export function InteractiveMap({
         pointId: point.id
       });
 
-      await updatePoint({ ...point, numeroPonto: newNumber });
+      editPoint(point.id, { numeroPonto: newNumber });
 
       console.log('[DEBUG] Point updated successfully');
 

@@ -4,7 +4,7 @@
 import { useForm, SubmitHandler, Controller } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useOfflineData } from "@/context/OfflineDataContext";
+import { useAnchorData } from "@/context/AnchorDataContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,7 +35,7 @@ const testSchema = z.object({
 type TestFormData = z.infer<typeof testSchema>;
 
 export function TestsTab() {
-  const { points, updatePointsAndAddTest, currentUser, currentProject, testPointId, setTestPointId, getPointById, locations } = useOfflineData();
+  const { points, updatePointsAndAddTest, currentUser, currentProject, testPointId, setTestPointId, getPointById, locations } = useAnchorData();
   const { toast } = useToast();
 
   // Permission check - Technicians and above can perform tests

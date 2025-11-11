@@ -7,7 +7,7 @@ import Image from 'next/image';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { TestTubeDiagonal, Trash2, Eye, Camera, CheckCircle, ArchiveRestore } from 'lucide-react';
-import { useOfflineData } from '@/context/OfflineDataContext';
+import { useAnchorData } from '@/context/AnchorDataContext';
 import { PointDetailsModal } from './point-details-modal';
 import { useState } from 'react';
 import { AddFinishedPhotoModal } from './add-finished-photo-modal';
@@ -50,14 +50,14 @@ const getStatusClass = (status: AnchorPoint['status']): string => {
 
 
 export function PointCard({ point }: PointCardProps) {
-  const { deletePoint, unarchivePoint, inspectionFlags, getProjectById, currentUser, getTestsByPoint, setActiveTab, setTestPointId } = useOfflineData();
+  const { deletePoint, editPoint, inspectionFlags, getProjectById, currentUser, getTestsByPointId, setActiveTab, setTestPointId } = useAnchorData();
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
 
   const needsInspection = inspectionFlags.includes(point.id);
   const project = getProjectById(point.projectId);
-  const test = getTestsByPoint(point.id)[0]; // Get the latest test
+  const test = getTestsByPointId(point.id)[0]; // Get the latest test
 
   const handleTestClick = () => {
     console.log('[DEBUG] handleTestClick called for point:', point.id);
@@ -82,7 +82,7 @@ export function PointCard({ point }: PointCardProps) {
   const handleUnarchive = () => {
     console.log('[DEBUG] handleUnarchive called for point:', point.id);
     try {
-      unarchivePoint(point.id);
+      editPoint(point.id, { archived: false });
     } catch (error) {
       console.error('[ERROR] handleUnarchive failed:', error);
     }

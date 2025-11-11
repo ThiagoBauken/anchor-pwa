@@ -1,19 +1,19 @@
 
 "use client";
 
-import { useOfflineData } from '@/context/OfflineDataContext';
+import { useAnchorData } from '@/context/AnchorDataContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { Badge } from './ui/badge';
 import { AlertCircle, CheckCircle, Clock, FileWarning, CameraOff, Construction, FolderKanban } from 'lucide-react';
 import { useMemo } from 'react';
 
 function DashboardStats() {
-  const { points, tests, projects, inspectionFlags, getTestsByPoint } = useOfflineData();
+  const { points, tests, projects, inspectionFlags, getTestsByPointId } = useAnchorData();
 
   const dashboardData = useMemo(() => {
     const testedPoints = points.filter(p => p.status !== 'Não Testado');
     const pointsWithFinishedPhoto = testedPoints.filter(p => {
-      const test = getTestsByPoint(p.id)[0]; // Get latest test
+      const test = getTestsByPointId(p.id)[0]; // Get latest test
       return !!test?.fotoPronto;
     });
     const pointsMissingFinishedPhoto = testedPoints.length - pointsWithFinishedPhoto.length;
@@ -27,7 +27,7 @@ function DashboardStats() {
       missingFinishedPhoto: pointsMissingFinishedPhoto,
       totalProjects: projects.length,
     };
-  }, [points, tests, projects, inspectionFlags, getTestsByPoint]);
+  }, [points, tests, projects, inspectionFlags, getTestsByPointId]);
 
   const stats = [
     { label: 'Total de Pontos (Projeto)', value: dashboardData.totalPoints, icon: Construction, color: 'text-primary' },
@@ -57,7 +57,7 @@ function DashboardStats() {
 }
 
 export function DashboardTab() {
-  const { currentProject } = useOfflineData();
+  const { currentProject } = useAnchorData();
   return (
       <div className="space-y-6 mt-4">
           <Card className="bg-card/90 backdrop-blur-sm">

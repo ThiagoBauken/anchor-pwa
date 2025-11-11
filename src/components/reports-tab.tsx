@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useOfflineData } from '@/context/OfflineDataContext';
+import { useAnchorData } from '@/context/AnchorDataContext';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Download, Bot, FileText } from 'lucide-react';
@@ -12,7 +12,7 @@ import { useState } from 'react';
 import { MapTab } from './map-tab';
 
 function ReportSummary() {
-  const { points, tests, currentProject, projects } = useOfflineData();
+  const { points, tests, currentProject, projects } = useAnchorData();
 
   // Get all points from all projects for the global stats
   const allPoints = points;
@@ -73,7 +73,7 @@ function ReportSummary() {
 }
 
 export function ReportsTab() {
-  const { points, tests, currentProject, users } = useOfflineData();
+  const { points, tests, currentProject, users } = useAnchorData();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);

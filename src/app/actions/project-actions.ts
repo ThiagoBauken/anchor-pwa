@@ -273,38 +273,7 @@ export async function deleteProject(id: string): Promise<boolean> {
     localStorageProjects.delete(id);
     console.log('[DEBUG] ✅ Project removed from localStorage');
 
-    // 3. LIMPA IndexedDB e Sync Queue (evita que o projeto volte)
-    try {
-      // Importação dinâmica para evitar SSR issues
-      const { offlineDB } = await import('@/lib/indexeddb');
-
-      // Remove projeto do IndexedDB
-      await offlineDB.delete('projects', id);
-      console.log('[DEBUG] ✅ Project removed from IndexedDB');
-
-      // Remove TODAS operações relacionadas ao projeto da sync queue
-      const syncQueue = await offlineDB.getSyncQueue();
-      const projectRelatedOps = syncQueue.filter(op => {
-        // Remover operações do próprio projeto
-        if (op.table === 'projects' && op.data?.id === id) return true;
-        // Remover operações de items que pertencem ao projeto
-        if (op.table === 'anchor_points' && op.data?.projectId === id) return true;
-        if (op.table === 'anchor_tests' && op.data?.projectId === id) return true;
-        if (op.table === 'locations' && op.data?.projectId === id) return true;
-        return false;
-      });
-
-      // Deletar operações relacionadas
-      for (const op of projectRelatedOps) {
-        await offlineDB.delete('sync_queue', op.id);
-      }
-      console.log(`[DEBUG] ✅ Removed ${projectRelatedOps.length} related operations from sync queue`);
-
-    } catch (dbError) {
-      console.warn('[WARN] Failed to clean IndexedDB/sync queue (not critical):', dbError);
-    }
-
-    // 4. LIMPA CACHE (força recarregar dados atualizados)
+    // 3. LIMPA CACHE (força recarregar dados atualizados)
     try {
       const { dataCache } = await import('@/lib/data-cache');
       const project = await prisma.project.findUnique({ where: { id }, select: { companyId: true } });

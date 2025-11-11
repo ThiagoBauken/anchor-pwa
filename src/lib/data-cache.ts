@@ -1,7 +1,7 @@
 /**
  * Cache simples para evitar múltiplas chamadas duplicadas ao banco
  *
- * Problema: AnchorDataContext e OfflineDataContext estavam chamando
+ * Problema: AnchorDataContext estava chamando
  * getProjectsForCompany() múltiplas vezes (15+ chamadas!)
  *
  * Solução: Cache com TTL de 5 minutos

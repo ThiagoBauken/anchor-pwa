@@ -24,7 +24,8 @@ export function CreateProgressionDialog({ isOpen, onOpenChange }: CreateProgress
         locations,
         lastUsedLocation,
         addPoint,
-        floorPlans
+        floorPlans,
+        currentFloorPlan
     } = useAnchorData();
     
     const { toast } = useToast();
@@ -120,23 +121,32 @@ export function CreateProgressionDialog({ isOpen, onOpenChange }: CreateProgress
     
     const handleConfirm = async () => {
         if (!currentProject) {
-            toast({ 
-                title: "Erro", 
-                description: "Nenhum projeto selecionado.", 
-                variant: "destructive" 
+            toast({
+                title: "Erro",
+                description: "Nenhum projeto selecionado.",
+                variant: "destructive"
             });
             return;
         }
-        
+
         if (mode === 'between' && (!startPoint || !endPoint)) {
-            toast({ 
-                title: "Erro", 
-                description: "Selecione os pontos inicial e final.", 
-                variant: "destructive" 
+            toast({
+                title: "Erro",
+                description: "Selecione os pontos inicial e final.",
+                variant: "destructive"
             });
             return;
         }
-        
+
+        if (mode === 'new' && !currentFloorPlan) {
+            toast({
+                title: "Erro",
+                description: "Selecione uma planta baixa antes de criar novos pontos.",
+                variant: "destructive"
+            });
+            return;
+        }
+
         try {
             const newPoints = [];
             
@@ -155,12 +165,24 @@ export function CreateProgressionDialog({ isOpen, onOpenChange }: CreateProgress
                 }
                 
                 const currentLocation = locations.find(l => l.id === lastUsedLocation);
+
+                // Determinar floorPlanId baseado no modo
+                let floorPlanId: string | undefined;
+                if (mode === 'between' && startPoint) {
+                    // Modo entre pontos: usa a mesma planta do ponto inicial
+                    floorPlanId = startPoint.floorPlanId;
+                } else if (currentFloorPlan) {
+                    // Modo nova sequência: usa a planta atualmente selecionada
+                    floorPlanId = currentFloorPlan.id;
+                }
+
                 const pointData = {
                     projectId: currentProject.id,
                     numeroPonto: previewNumbers[i],
                     posicaoX: x,
                     posicaoY: y,
                     localizacao: currentLocation?.name || startPoint?.localizacao || 'Não definido',
+                    floorPlanId: floorPlanId,
                     status: 'Não Testado' as const,
                     archived: false
                 };
@@ -168,12 +190,21 @@ export function CreateProgressionDialog({ isOpen, onOpenChange }: CreateProgress
                 addPoint(pointData);
                 newPoints.push(pointData);
             }
-            
-            toast({ 
-                title: "Sucesso!", 
-                description: `${numPoints} pontos criados com sucesso.`
+
+            // Determinar o nome da planta baixa onde os pontos foram criados
+            let floorPlanName = 'Sem planta';
+            if (mode === 'between' && startPoint) {
+                const floorPlan = floorPlans?.find(fp => fp.id === startPoint.floorPlanId);
+                floorPlanName = floorPlan?.name || 'Sem planta';
+            } else if (currentFloorPlan) {
+                floorPlanName = currentFloorPlan.name;
+            }
+
+            toast({
+                title: "Sucesso!",
+                description: `${numPoints} pontos criados com sucesso na planta "${floorPlanName}".`
             });
-            
+
             onOpenChange(false);
             resetForm();
             
@@ -348,7 +379,28 @@ export function CreateProgressionDialog({ isOpen, onOpenChange }: CreateProgress
                                     />
                                 </div>
                             </div>
-                            
+
+                            {/* Aviso quando não há planta baixa selecionada */}
+                            {!currentFloorPlan && (
+                                <Alert variant="destructive">
+                                    <AlertCircle className="h-4 w-4" />
+                                    <AlertDescription>
+                                        Nenhuma planta baixa selecionada! Selecione uma planta na aba Mapa antes de criar pontos.
+                                    </AlertDescription>
+                                </Alert>
+                            )}
+
+                            {/* Indicador da planta baixa selecionada */}
+                            {currentFloorPlan && (
+                                <Alert>
+                                    <AlertCircle className="h-4 w-4" />
+                                    <AlertDescription>
+                                        <span className="font-medium">Planta selecionada: </span>
+                                        {currentFloorPlan.name}
+                                    </AlertDescription>
+                                </Alert>
+                            )}
+
                             {/* Preview da numeração */}
                             {previewNumbers.length > 0 && (
                                 <Alert>
@@ -382,11 +434,12 @@ export function CreateProgressionDialog({ isOpen, onOpenChange }: CreateProgress
                     <Button variant="outline" onClick={() => onOpenChange(false)}>
                         Cancelar
                     </Button>
-                    <Button 
+                    <Button
                         onClick={handleConfirm}
                         disabled={
                             (mode === 'between' && (!startPointId || !endPointId)) ||
-                            numPoints < 1 || 
+                            (mode === 'new' && !currentFloorPlan) ||
+                            numPoints < 1 ||
                             numPoints > 50
                         }
                     >

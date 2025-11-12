@@ -89,12 +89,12 @@ export function CreateProgressionDialog({ isOpen, onOpenChange }: CreateProgress
     // Preview dos números que serão criados
     const previewNumbers = useMemo(() => {
         const numbers = [];
-        
+
         if (mode === 'between' && startPoint && endPoint) {
             // Modo entre pontos: gerar números intermediários
             const startNum = parseInt(startPoint.numeroPonto.replace(/\D/g, ''), 10);
             const endNum = parseInt(endPoint.numeroPonto.replace(/\D/g, ''), 10);
-            
+
             if (startNum && endNum && endNum > startNum) {
                 // Tentar distribuir números uniformemente entre os pontos
                 const step = (endNum - startNum) / (numPoints + 1);
@@ -115,11 +115,63 @@ export function CreateProgressionDialog({ isOpen, onOpenChange }: CreateProgress
                 numbers.push(`${prefix}${start + i}${suffix}`);
             }
         }
-        
+
         return numbers;
     }, [mode, startPoint, endPoint, numPoints, startNumber, prefix, suffix]);
+
+    // Detectar números duplicados
+    const duplicateCheck = useMemo(() => {
+        if (previewNumbers.length === 0) return { hasDuplicates: false, duplicates: [], available: [] };
+
+        const existingNumbers = new Set(
+            points
+                .filter(p => p.projectId === currentProject?.id && !p.archived)
+                .map(p => p.numeroPonto)
+        );
+
+        const duplicates = previewNumbers.filter(num => existingNumbers.has(num));
+        const available = previewNumbers.filter(num => !existingNumbers.has(num));
+
+        return {
+            hasDuplicates: duplicates.length > 0,
+            duplicates,
+            available,
+            allDuplicate: duplicates.length === previewNumbers.length
+        };
+    }, [previewNumbers, points, currentProject]);
+
+    // Encontrar próximos números disponíveis
+    const findNextAvailableNumbers = (count: number): string[] => {
+        const existingNumbers = new Set(
+            points
+                .filter(p => p.projectId === currentProject?.id && !p.archived)
+                .map(p => p.numeroPonto)
+        );
+
+        const result = [];
+        let current = 1;
+
+        // Extrair prefixo e sufixo do primeiro número do preview
+        const firstPreview = previewNumbers[0] || '';
+        const match = firstPreview.match(/^([^\d]*)(\d+)(.*)$/);
+        const currentPrefix = match ? match[1] : prefix;
+        const currentSuffix = match ? match[3] : suffix;
+
+        while (result.length < count) {
+            const candidate = `${currentPrefix}${current}${currentSuffix}`;
+            if (!existingNumbers.has(candidate)) {
+                result.push(candidate);
+            }
+            current++;
+
+            // Segurança: evitar loop infinito
+            if (current > 10000) break;
+        }
+
+        return result;
+    };
     
-    const handleConfirm = async () => {
+    const handleConfirm = async (strategy: 'create-all' | 'skip-duplicates' | 'use-next-available' = 'create-all') => {
         if (!currentProject) {
             toast({
                 title: "Erro",
@@ -149,13 +201,33 @@ export function CreateProgressionDialog({ isOpen, onOpenChange }: CreateProgress
 
         try {
             const newPoints = [];
-            
-            for (let i = 0; i < numPoints; i++) {
+
+            // Determinar quais números usar baseado na estratégia
+            let numbersToCreate: string[];
+            if (strategy === 'skip-duplicates') {
+                numbersToCreate = duplicateCheck.available;
+                if (numbersToCreate.length === 0) {
+                    toast({
+                        title: "Aviso",
+                        description: "Todos os números já existem. Nenhum ponto foi criado.",
+                        variant: "destructive"
+                    });
+                    return;
+                }
+            } else if (strategy === 'use-next-available') {
+                numbersToCreate = findNextAvailableNumbers(numPoints);
+            } else {
+                numbersToCreate = previewNumbers;
+            }
+
+            for (let i = 0; i < numbersToCreate.length; i++) {
                 let x, y;
-                
+
                 if (mode === 'between' && startPoint && endPoint) {
                     // Calcular posição interpolada
-                    const fraction = (i + 1) / (numPoints + 1);
+                    // Usar a fração baseada no total original, não no número de pontos a criar
+                    const originalIndex = previewNumbers.indexOf(numbersToCreate[i]);
+                    const fraction = (originalIndex + 1) / (previewNumbers.length + 1);
                     x = startPoint.posicaoX + fraction * (endPoint.posicaoX - startPoint.posicaoX);
                     y = startPoint.posicaoY + fraction * (endPoint.posicaoY - startPoint.posicaoY);
                 } else {
@@ -163,7 +235,7 @@ export function CreateProgressionDialog({ isOpen, onOpenChange }: CreateProgress
                     x = 100 + i * 50;
                     y = 100;
                 }
-                
+
                 const currentLocation = locations.find(l => l.id === lastUsedLocation);
 
                 // Determinar floorPlanId baseado no modo
@@ -178,7 +250,7 @@ export function CreateProgressionDialog({ isOpen, onOpenChange }: CreateProgress
 
                 const pointData = {
                     projectId: currentProject.id,
-                    numeroPonto: previewNumbers[i],
+                    numeroPonto: numbersToCreate[i],
                     posicaoX: x,
                     posicaoY: y,
                     localizacao: currentLocation?.name || startPoint?.localizacao || 'Não definido',
@@ -200,9 +272,17 @@ export function CreateProgressionDialog({ isOpen, onOpenChange }: CreateProgress
                 floorPlanName = currentFloorPlan.name;
             }
 
+            // Mensagem de sucesso baseada na estratégia
+            let successMessage = `${numbersToCreate.length} pontos criados com sucesso na planta "${floorPlanName}".`;
+            if (strategy === 'skip-duplicates' && duplicateCheck.duplicates.length > 0) {
+                successMessage += ` ${duplicateCheck.duplicates.length} número(s) duplicado(s) foram pulados.`;
+            } else if (strategy === 'use-next-available') {
+                successMessage = `${numbersToCreate.length} pontos criados usando próximos números disponíveis na planta "${floorPlanName}".`;
+            }
+
             toast({
                 title: "Sucesso!",
-                description: `${numPoints} pontos criados com sucesso na planta "${floorPlanName}".`
+                description: successMessage
             });
 
             onOpenChange(false);
@@ -413,6 +493,32 @@ export function CreateProgressionDialog({ isOpen, onOpenChange }: CreateProgress
                             )}
                         </>
                     )}
+
+                    {/* Alerta de números duplicados */}
+                    {duplicateCheck.hasDuplicates && previewNumbers.length > 0 && (
+                        <Alert variant="destructive">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertDescription>
+                                <div className="space-y-2">
+                                    <p className="font-medium">
+                                        ⚠️ {duplicateCheck.duplicates.length} número(s) já existe(m) neste projeto:
+                                    </p>
+                                    <div className="flex flex-wrap gap-1">
+                                        {duplicateCheck.duplicates.map((num) => (
+                                            <span key={num} className="px-2 py-1 bg-red-100 text-red-800 rounded text-sm font-medium">
+                                                {num}
+                                            </span>
+                                        ))}
+                                    </div>
+                                    {duplicateCheck.available.length > 0 && (
+                                        <p className="text-sm mt-2">
+                                            {duplicateCheck.available.length} número(s) disponível(is): {duplicateCheck.available.join(', ')}
+                                        </p>
+                                    )}
+                                </div>
+                            </AlertDescription>
+                        </Alert>
+                    )}
                     
                     {/* Quantidade de pontos */}
                     <div className="space-y-2">
@@ -431,20 +537,55 @@ export function CreateProgressionDialog({ isOpen, onOpenChange }: CreateProgress
                 </div>
                 
                 <DialogFooter>
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>
-                        Cancelar
-                    </Button>
-                    <Button
-                        onClick={handleConfirm}
-                        disabled={
-                            (mode === 'between' && (!startPointId || !endPointId)) ||
-                            (mode === 'new' && !currentFloorPlan) ||
-                            numPoints < 1 ||
-                            numPoints > 50
-                        }
-                    >
-                        Criar {numPoints} Pontos
-                    </Button>
+                    {duplicateCheck.hasDuplicates ? (
+                        <>
+                            <Button variant="outline" onClick={() => onOpenChange(false)}>
+                                Cancelar
+                            </Button>
+                            {!duplicateCheck.allDuplicate && (
+                                <Button
+                                    variant="secondary"
+                                    onClick={() => handleConfirm('skip-duplicates')}
+                                    disabled={
+                                        (mode === 'between' && (!startPointId || !endPointId)) ||
+                                        (mode === 'new' && !currentFloorPlan) ||
+                                        numPoints < 1 ||
+                                        numPoints > 50
+                                    }
+                                >
+                                    Pular Duplicados ({duplicateCheck.available.length} pontos)
+                                </Button>
+                            )}
+                            <Button
+                                onClick={() => handleConfirm('use-next-available')}
+                                disabled={
+                                    (mode === 'between' && (!startPointId || !endPointId)) ||
+                                    (mode === 'new' && !currentFloorPlan) ||
+                                    numPoints < 1 ||
+                                    numPoints > 50
+                                }
+                            >
+                                Usar Próximos Disponíveis
+                            </Button>
+                        </>
+                    ) : (
+                        <>
+                            <Button variant="outline" onClick={() => onOpenChange(false)}>
+                                Cancelar
+                            </Button>
+                            <Button
+                                onClick={() => handleConfirm('create-all')}
+                                disabled={
+                                    (mode === 'between' && (!startPointId || !endPointId)) ||
+                                    (mode === 'new' && !currentFloorPlan) ||
+                                    numPoints < 1 ||
+                                    numPoints > 50
+                                }
+                            >
+                                Criar {numPoints} Pontos
+                            </Button>
+                        </>
+                    )}
                 </DialogFooter>
             </DialogContent>
         </Dialog>

@@ -903,6 +903,8 @@ model FacadeSide {
   imageHeight          Int?               @map("image_height")
   availableFloors      String[]           @default([]) @map("available_floors")
   availableDivisions   String[]           @default([]) @map("available_divisions")
+  floorPositions       Json?              @map("floor_positions") // Guide line positions for floors (% from left)
+  divisionPositions    Json?              @map("division_positions") // Guide line positions for divisions (% from top)
   order                Int                @default(0)
   createdAt            DateTime           @default(now()) @map("created_at")
   updatedAt            DateTime           @updatedAt @map("updated_at")

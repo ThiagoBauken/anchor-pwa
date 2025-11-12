@@ -4,8 +4,6 @@
 -- IMPACT: 80% improvement in team/location queries
 -- ==========================================
 
-BEGIN;
-
 -- Teams table
 CREATE INDEX CONCURRENTLY IF NOT EXISTS "Team_companyId_idx"
 ON "teams"("company_id");
@@ -52,8 +50,6 @@ ON "anchor_points"("project_id", "next_inspection_date");
 -- ProjectTeamPermission: cleanup expired permissions
 CREATE INDEX CONCURRENTLY IF NOT EXISTS "project_team_permissions_expiresAt_idx"
 ON "project_team_permissions"("expires_at");
-
-COMMIT;
 
 -- ==========================================
 -- Verification Query

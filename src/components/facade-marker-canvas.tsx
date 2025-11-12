@@ -82,6 +82,76 @@ export function FacadeMarkerCanvas({
     const scaleX = canvas.width / (facadeSide.imageWidth || imageObj.width);
     const scaleY = canvas.height / (facadeSide.imageHeight || imageObj.height);
 
+    // ========================================
+    // DRAW GUIDE LINES (Andares and Divisões)
+    // ========================================
+
+    // Draw vertical guide lines (Andares / Floors) - from left edge
+    if (facadeSide.floorPositions && Object.keys(facadeSide.floorPositions).length > 0) {
+      const floorPositions = facadeSide.floorPositions as Record<string, number>;
+
+      Object.entries(floorPositions).forEach(([floorName, position]) => {
+        const x = (position / 100) * canvas.width;
+
+        // Draw vertical line
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.strokeStyle = 'rgba(59, 130, 246, 0.6)'; // Blue with transparency
+        ctx.lineWidth = 2;
+        ctx.setLineDash([10, 5]); // Dashed line
+        ctx.stroke();
+        ctx.setLineDash([]); // Reset dash
+
+        // Draw label at top
+        const labelPadding = 4;
+        const labelHeight = 20;
+        const labelWidth = ctx.measureText(floorName).width + labelPadding * 2;
+
+        ctx.fillStyle = 'rgba(59, 130, 246, 0.9)'; // Blue background
+        ctx.fillRect(x - labelWidth / 2, 0, labelWidth, labelHeight);
+
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText(floorName, x, labelPadding);
+      });
+    }
+
+    // Draw horizontal guide lines (Divisões / Divisions) - from top edge
+    if (facadeSide.divisionPositions && Object.keys(facadeSide.divisionPositions).length > 0) {
+      const divisionPositions = facadeSide.divisionPositions as Record<string, number>;
+
+      Object.entries(divisionPositions).forEach(([divisionName, position]) => {
+        const y = (position / 100) * canvas.height;
+
+        // Draw horizontal line
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.strokeStyle = 'rgba(34, 197, 94, 0.6)'; // Green with transparency
+        ctx.lineWidth = 2;
+        ctx.setLineDash([10, 5]); // Dashed line
+        ctx.stroke();
+        ctx.setLineDash([]); // Reset dash
+
+        // Draw label at left
+        const labelPadding = 4;
+        const labelHeight = 20;
+        const labelWidth = ctx.measureText(divisionName).width + labelPadding * 2;
+
+        ctx.fillStyle = 'rgba(34, 197, 94, 0.9)'; // Green background
+        ctx.fillRect(0, y - labelHeight / 2, labelWidth, labelHeight);
+
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(divisionName, labelPadding, y);
+      });
+    }
+
     // Draw existing markers (SORTED BY ZINDEX - lower first, higher on top)
     const sortedMarkers = [...markers].sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0));
 
@@ -209,7 +279,7 @@ export function FacadeMarkerCanvas({
         });
       }
     }
-  }, [imageLoaded, imageObj, canvasSize, markers, categories, hoveredMarker, selectedMarker, currentPoints, currentRect, selectedCategoryId, facadeSide.imageWidth, facadeSide.imageHeight]);
+  }, [imageLoaded, imageObj, canvasSize, markers, categories, hoveredMarker, selectedMarker, currentPoints, currentRect, selectedCategoryId, facadeSide.imageWidth, facadeSide.imageHeight, facadeSide.floorPositions, facadeSide.divisionPositions]);
 
   // Handle mouse down for RECTANGLE mode
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -256,8 +326,13 @@ export function FacadeMarkerCanvas({
 
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    let x = e.clientX - rect.left;
+    let y = e.clientY - rect.top;
+
+    // Apply snap to guide lines
+    const snapped = snapToGuideLine(x, y, canvas.width, canvas.height);
+    x = snapped.x;
+    y = snapped.y;
 
     // Check if clicking on the first point to close polygon
     if (currentPoints.length >= 3) {
@@ -283,6 +358,37 @@ export function FacadeMarkerCanvas({
     }
   };
 
+  // Helper function: Snap coordinate to nearest guide line
+  const snapToGuideLine = (x: number, y: number, canvasWidth: number, canvasHeight: number) => {
+    const snapThreshold = 15; // pixels
+    let snappedX = x;
+    let snappedY = y;
+
+    // Snap X to vertical guide lines (floors)
+    if (facadeSide.floorPositions) {
+      const floorPositions = facadeSide.floorPositions as Record<string, number>;
+      Object.values(floorPositions).forEach(position => {
+        const lineX = (position / 100) * canvasWidth;
+        if (Math.abs(x - lineX) < snapThreshold) {
+          snappedX = lineX;
+        }
+      });
+    }
+
+    // Snap Y to horizontal guide lines (divisions)
+    if (facadeSide.divisionPositions) {
+      const divisionPositions = facadeSide.divisionPositions as Record<string, number>;
+      Object.values(divisionPositions).forEach(position => {
+        const lineY = (position / 100) * canvasHeight;
+        if (Math.abs(y - lineY) < snapThreshold) {
+          snappedY = lineY;
+        }
+      });
+    }
+
+    return { x: snappedX, y: snappedY };
+  };
+
   // Finish RECTANGLE drawing and create marker
   const finishRectangleDrawing = async (start: { x: number; y: number }, end: { x: number; y: number }) => {
     if (!selectedCategoryId || !canvasRef.current) return;
@@ -291,11 +397,15 @@ export function FacadeMarkerCanvas({
     const scaleX = (facadeSide.imageWidth || imageObj?.width || canvas.width) / canvas.width;
     const scaleY = (facadeSide.imageHeight || imageObj?.height || canvas.height) / canvas.height;
 
+    // Apply snap to guide lines
+    const snappedStart = snapToGuideLine(start.x, start.y, canvas.width, canvas.height);
+    const snappedEnd = snapToGuideLine(end.x, end.y, canvas.width, canvas.height);
+
     // Normalize rectangle (handle negative width/height)
-    const x = Math.min(start.x, end.x);
-    const y = Math.min(start.y, end.y);
-    const width = Math.abs(end.x - start.x);
-    const height = Math.abs(end.y - start.y);
+    const x = Math.min(snappedStart.x, snappedEnd.x);
+    const y = Math.min(snappedStart.y, snappedEnd.y);
+    const width = Math.abs(snappedEnd.x - snappedStart.x);
+    const height = Math.abs(snappedEnd.y - snappedStart.y);
 
     // Scale back to original image coordinates
     const originalX = x * scaleX;

@@ -215,12 +215,19 @@ export function FacadeInspectionManager({
   };
 
   // Update Floor/Division configuration
-  const handleUpdateFloorDivisionConfig = async (floors: string[], divisions: string[]) => {
+  const handleUpdateFloorDivisionConfig = async (
+    floors: string[],
+    divisions: string[],
+    floorPositions: Record<string, number>,
+    divisionPositions: Record<string, number>
+  ) => {
     if (!selectedFacadeSide) return;
 
     const updated = await updateFacadeSide(selectedFacadeSide.id, {
       availableFloors: floors,
-      availableDivisions: divisions
+      availableDivisions: divisions,
+      floorPositions: floorPositions,
+      divisionPositions: divisionPositions
     });
 
     if (updated) {
@@ -536,6 +543,8 @@ export function FacadeInspectionManager({
                             <FloorDivisionConfig
                               availableFloors={side.availableFloors || []}
                               availableDivisions={side.availableDivisions || []}
+                              floorPositions={side.floorPositions as Record<string, number> || {}}
+                              divisionPositions={side.divisionPositions as Record<string, number> || {}}
                               onUpdateConfig={handleUpdateFloorDivisionConfig}
                               disabled={!canEdit}
                             />

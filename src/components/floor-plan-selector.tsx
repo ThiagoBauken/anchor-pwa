@@ -46,17 +46,20 @@ export function FloorPlanSelector({
 
   const handleAddFloorPlan = async () => {
     if (newFloorPlanName.trim() && newFloorPlanImage) {
-      await onAddFloorPlan(newFloorPlanName, newFloorPlanImage, newFloorPlanOrder);
+      // 🔧 FIX: Auto-calculate order based on existing floor plans
+      const autoOrder = floorPlans.length;
+      await onAddFloorPlan(newFloorPlanName, newFloorPlanImage, autoOrder);
       setNewFloorPlanName('');
       setNewFloorPlanImage('');
-      setNewFloorPlanOrder(floorPlans.length);
+      setNewFloorPlanOrder(0);
       setIsAddModalOpen(false);
     }
   };
 
   const handleEditFloorPlan = async () => {
     if (editingFloorPlan && newFloorPlanName.trim()) {
-      await onEditFloorPlan(editingFloorPlan.id, newFloorPlanName, newFloorPlanOrder);
+      // 🔧 FIX: Keep existing order when editing, only change name
+      await onEditFloorPlan(editingFloorPlan.id, newFloorPlanName, editingFloorPlan.order);
       setEditingFloorPlan(null);
       setNewFloorPlanName('');
       setNewFloorPlanOrder(0);
@@ -165,18 +168,6 @@ export function FloorPlanSelector({
                 <p className="text-xs text-muted-foreground mt-1">Imagem selecionada</p>
               )}
             </div>
-            <div>
-              <Label htmlFor="floor-plan-order">Ordem de Exibição</Label>
-              <Input
-                id="floor-plan-order"
-                type="number"
-                value={newFloorPlanOrder}
-                onChange={(e) => setNewFloorPlanOrder(parseInt(e.target.value) || 0)}
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Ordem numérica (0, 1, 2...). Menor número aparece primeiro.
-              </p>
-            </div>
             <div className="flex gap-2">
               <Button onClick={handleAddFloorPlan} disabled={!newFloorPlanName.trim() || !newFloorPlanImage}>
                 Adicionar
@@ -205,15 +196,6 @@ export function FloorPlanSelector({
                 id="edit-floor-plan-name"
                 value={newFloorPlanName}
                 onChange={(e) => setNewFloorPlanName(e.target.value)}
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit-floor-plan-order">Ordem de Exibição</Label>
-              <Input
-                id="edit-floor-plan-order"
-                type="number"
-                value={newFloorPlanOrder}
-                onChange={(e) => setNewFloorPlanOrder(parseInt(e.target.value) || 0)}
               />
             </div>
             <div className="flex gap-2">

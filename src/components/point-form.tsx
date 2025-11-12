@@ -49,7 +49,7 @@ export function PointForm({ pointToEdit, initialX = 0, initialY = 0, onPointAdde
   const {
     addPoint, editPoint, currentProject, points, locations,
     currentUser, lastUsedLocation, installationDate,
-    setLastUsedLocation, setInstallationDate
+    setLastUsedLocation, setInstallationDate, currentFloorPlan
   } = useAnchorData();
   const { toast } = useToast();
   
@@ -203,6 +203,7 @@ export function PointForm({ pointToEdit, initialX = 0, initialY = 0, onPointAdde
             projectId: currentProject.id,
             createdByUserId: currentUser?.id,
             status: 'Não Testado',
+            floorPlanId: currentFloorPlan?.id || null, // 🔧 FIX: Add floorPlanId so points appear on map!
         } as any);
         
         toast({

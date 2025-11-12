@@ -453,11 +453,6 @@ export function ProjectsTab() {
                       <Label htmlFor="name">Nome do Projeto (Obrigatório)</Label>
                       <Input id="name" value={newProject.name} onChange={handleInputChange} placeholder="Ex: Edifício Central" />
                     </div>
-                    <div className="space-y-2">
-                      <Label>Plantas Baixas (Opcional)</Label>
-                      <p className="text-xs text-muted-foreground">Você pode adicionar plantas baixas aqui ou depois na aba "Mapa"</p>
-                      <FileUpload onFilesSelect={handleFilesSelect} />
-                    </div>
                     <div className="space-y-2 pt-2">
                       <Label htmlFor="dispositivoDeAncoragemPadrao">Dispositivo de Ancoragem Padrão</Label>
                       <Input id="dispositivoDeAncoragemPadrao" value={newProject.dispositivoDeAncoragemPadrao} onChange={handleInputChange} placeholder="Ex: Placa de Ancoragem Inox" />

@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(npx prisma migrate status)",
-      "Bash(npm run typecheck:*)"
+      "Bash(npm run typecheck:*)",
+      "Bash(tasklist:*)",
+      "Bash(npx prisma generate)"
     ],
     "deny": [],
     "ask": [],

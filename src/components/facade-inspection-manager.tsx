@@ -38,6 +38,7 @@ import { PathologyCategoryEditor } from './pathology-category-editor';
 import { FloorDivisionConfig } from './floor-division-config';
 import { PathologyMarkerForm } from './pathology-marker-form';
 import { Plus, Upload, Trash2, Eye, Edit2, MapPin, Settings } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface FacadeInspectionManagerProps {
   projectId: string;
@@ -52,6 +53,7 @@ export function FacadeInspectionManager({
   currentUserId,
   canEdit = true
 }: FacadeInspectionManagerProps) {
+  const { toast } = useToast();
   const [inspections, setInspections] = useState<FacadeInspection[]>([]);
   const [categories, setCategories] = useState<PathologyCategory[]>([]);
   const [selectedInspection, setSelectedInspection] = useState<FacadeInspection | null>(null);
@@ -126,20 +128,46 @@ export function FacadeInspectionManager({
 
   // Create inspection
   const handleCreateInspection = async () => {
-    if (!newInspectionName.trim()) return;
+    if (!newInspectionName.trim()) {
+      toast({
+        title: "Erro",
+        description: "Por favor, insira um nome para a inspeção.",
+        variant: "destructive"
+      });
+      return;
+    }
 
-    const inspection = await createFacadeInspection(
-      projectId,
-      newInspectionName,
-      currentUserId,
-      newInspectionDescription || undefined
-    );
+    try {
+      const inspection = await createFacadeInspection(
+        projectId,
+        newInspectionName,
+        currentUserId,
+        newInspectionDescription || undefined
+      );
 
-    if (inspection) {
-      setInspections(prev => [inspection as any, ...prev]);
-      setNewInspectionName('');
-      setNewInspectionDescription('');
-      setShowNewInspectionModal(false);
+      if (inspection) {
+        setInspections(prev => [inspection as any, ...prev]);
+        setNewInspectionName('');
+        setNewInspectionDescription('');
+        setShowNewInspectionModal(false);
+        toast({
+          title: "Sucesso!",
+          description: `Inspeção "${newInspectionName}" criada com sucesso.`
+        });
+      } else {
+        toast({
+          title: "Erro",
+          description: "Não foi possível criar a inspeção. Verifique o console para mais detalhes.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao criar inspeção:', error);
+      toast({
+        title: "Erro",
+        description: error instanceof Error ? error.message : "Erro desconhecido ao criar inspeção.",
+        variant: "destructive"
+      });
     }
   };
 

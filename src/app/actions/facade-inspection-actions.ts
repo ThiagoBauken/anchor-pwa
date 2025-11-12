@@ -441,6 +441,8 @@ export async function updateFacadeSide(
     imageHeight?: number;
     availableFloors?: string[];
     availableDivisions?: string[];
+    floorPositions?: Record<string, number>;
+    divisionPositions?: Record<string, number>;
   }
 ) {
   // Authentication and authorization

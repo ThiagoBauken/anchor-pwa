@@ -9,12 +9,13 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Button } from './ui/button';
-import { Download, RotateCw, RotateCcw, Archive, Search } from 'lucide-react';
+import { Download, RotateCw, RotateCcw, Archive, Search, Hash } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { useToast } from '@/hooks/use-toast';
 import { Slider } from './ui/slider';
 import { Switch } from './ui/switch';
 import { PointDetailsModal } from './point-details-modal';
+import { CreateProgressionDialog } from './create-progression-dialog';
 import { SkeletonMap } from './ui/skeleton';
 import { LoadingSpinner } from './ui/loading-spinner';
 import { FloorPlanSelector } from './floor-plan-selector';
@@ -63,6 +64,7 @@ export function MapTab({ onActiveFloorPlanChange }: { onActiveFloorPlanChange?: 
   // Local states for missing features
   const [showArchived, setShowArchived] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showProgressionDialog, setShowProgressionDialog] = useState(false);
   
   console.log('[DEBUG] MapTab render:', {
     hasCurrentProject: !!currentProject,
@@ -267,6 +269,15 @@ export function MapTab({ onActiveFloorPlanChange }: { onActiveFloorPlanChange?: 
                         <Switch id="show-archived" checked={showArchived} onCheckedChange={setShowArchived} />
                         <Label htmlFor="show-archived">Mostrar Arquivados</Label>
                     </div>
+                    <Button
+                        onClick={() => setShowProgressionDialog(true)}
+                        className="w-full gap-2"
+                        size="sm"
+                        variant="outline"
+                    >
+                        <Hash className="h-4 w-4" />
+                        Criar Progressão
+                    </Button>
                 </div>
              )}
         </div>
@@ -325,6 +336,11 @@ export function MapTab({ onActiveFloorPlanChange }: { onActiveFloorPlanChange?: 
             pointId={selectedPointIdFromSearch}
         />
     )}
+
+    <CreateProgressionDialog
+      isOpen={showProgressionDialog}
+      onOpenChange={setShowProgressionDialog}
+    />
     </>
   );
 }

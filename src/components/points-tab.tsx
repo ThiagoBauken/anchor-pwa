@@ -11,14 +11,12 @@ import { Switch } from './ui/switch';
 import { Button } from './ui/button';
 import { SkeletonPointCard } from './ui/skeleton';
 import { LoadingSpinner } from './ui/loading-spinner';
-import { CreateProgressionDialog } from './create-progression-dialog';
-import { Hash, Search, MapPin } from 'lucide-react';
+import { Search, MapPin } from 'lucide-react';
 
 export function PointsTab() {
   const { currentProject, locations, currentUser, showArchived, setShowArchived } = useAnchorData();
   const [searchQuery, setSearchQuery] = useState('');
   const [locationFilter, setLocationFilter] = useState('all');
-  const [showProgressionDialog, setShowProgressionDialog] = useState(false);
 
   if (!currentProject) {
     return <div>Selecione um projeto</div>;
@@ -28,20 +26,8 @@ export function PointsTab() {
     <div className="mt-4">
         <Card className="bg-card/90 backdrop-blur-sm">
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Galeria de Pontos do Projeto: {currentProject.name}</CardTitle>
-                <CardDescription>Lista de todos os pontos de ancoragem cadastrados para o projeto atual.</CardDescription>
-              </div>
-              <Button
-                onClick={() => setShowProgressionDialog(true)}
-                className="gap-2"
-                size="sm"
-              >
-                <Hash className="h-4 w-4" />
-                Criar Progressão
-              </Button>
-            </div>
+            <CardTitle>Galeria de Pontos do Projeto: {currentProject.name}</CardTitle>
+            <CardDescription>Lista de todos os pontos de ancoragem cadastrados para o projeto atual.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
@@ -82,11 +68,6 @@ export function PointsTab() {
             <PointsGallery searchQuery={searchQuery} locationFilter={locationFilter} />
           </CardContent>
         </Card>
-        
-        <CreateProgressionDialog 
-          isOpen={showProgressionDialog}
-          onOpenChange={setShowProgressionDialog}
-        />
     </div>
   );
 }

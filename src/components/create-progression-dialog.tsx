@@ -23,7 +23,8 @@ export function CreateProgressionDialog({ isOpen, onOpenChange }: CreateProgress
         currentProject,
         locations,
         lastUsedLocation,
-        addPoint
+        addPoint,
+        floorPlans
     } = useAnchorData();
     
     const { toast } = useToast();
@@ -47,6 +48,21 @@ export function CreateProgressionDialog({ isOpen, onOpenChange }: CreateProgress
                 return numA - numB;
             });
     }, [points, currentProject]);
+
+    // Helper para formatar nome do ponto com contexto
+    const formatPointLabel = (point: typeof points[0]) => {
+        const floorPlan = floorPlans?.find(fp => fp.id === point.floorPlanId);
+        const floorPlanName = floorPlan ? ` | ${floorPlan.name}` : '';
+        const location = point.localizacao || 'Sem localização';
+        return `#${point.numeroPonto} - ${location}${floorPlanName}`;
+    };
+
+    // Auto-switch to 'new' mode if not enough points for 'between' mode
+    useEffect(() => {
+        if (mode === 'between' && availablePoints.length < 2) {
+            setMode('new');
+        }
+    }, [mode, availablePoints.length]);
     
     // Pontos selecionados
     const startPoint = useMemo(() => 
@@ -191,14 +207,24 @@ export function CreateProgressionDialog({ isOpen, onOpenChange }: CreateProgress
                 </DialogHeader>
                 
                 <div className="space-y-6 py-4">
+                    {/* Aviso se não houver pontos */}
+                    {availablePoints.length === 0 && (
+                        <Alert>
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertDescription>
+                                Nenhum ponto disponível no projeto atual. Crie alguns pontos primeiro para usar o modo "Entre pontos".
+                            </AlertDescription>
+                        </Alert>
+                    )}
+
                     {/* Modo de criação */}
                     <div className="space-y-3">
                         <Label>Modo de Criação</Label>
                         <RadioGroup value={mode} onValueChange={(v) => setMode(v as 'between' | 'new')}>
                             <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="between" id="between" />
-                                <Label htmlFor="between" className="font-normal cursor-pointer">
-                                    Adicionar pontos ENTRE dois pontos existentes
+                                <RadioGroupItem value="between" id="between" disabled={availablePoints.length < 2} />
+                                <Label htmlFor="between" className={`font-normal ${availablePoints.length < 2 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
+                                    Adicionar pontos ENTRE dois pontos existentes {availablePoints.length < 2 && '(requer 2+ pontos)'}
                                 </Label>
                             </div>
                             <div className="flex items-center space-x-2">
@@ -221,15 +247,21 @@ export function CreateProgressionDialog({ isOpen, onOpenChange }: CreateProgress
                                             <SelectValue placeholder="Selecione..." />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {availablePoints.map(point => (
-                                                <SelectItem 
-                                                    key={point.id} 
-                                                    value={point.id}
-                                                    disabled={point.id === endPointId}
-                                                >
-                                                    Ponto #{point.numeroPonto}
+                                            {availablePoints.length > 0 ? (
+                                                availablePoints.map(point => (
+                                                    <SelectItem
+                                                        key={point.id}
+                                                        value={point.id}
+                                                        disabled={point.id === endPointId}
+                                                    >
+                                                        {formatPointLabel(point)}
+                                                    </SelectItem>
+                                                ))
+                                            ) : (
+                                                <SelectItem value="empty" disabled>
+                                                    Nenhum ponto disponível
                                                 </SelectItem>
-                                            ))}
+                                            )}
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -241,15 +273,21 @@ export function CreateProgressionDialog({ isOpen, onOpenChange }: CreateProgress
                                             <SelectValue placeholder="Selecione..." />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {availablePoints.map(point => (
-                                                <SelectItem 
-                                                    key={point.id} 
-                                                    value={point.id}
-                                                    disabled={point.id === startPointId}
-                                                >
-                                                    Ponto #{point.numeroPonto}
+                                            {availablePoints.length > 0 ? (
+                                                availablePoints.map(point => (
+                                                    <SelectItem
+                                                        key={point.id}
+                                                        value={point.id}
+                                                        disabled={point.id === startPointId}
+                                                    >
+                                                        {formatPointLabel(point)}
+                                                    </SelectItem>
+                                                ))
+                                            ) : (
+                                                <SelectItem value="empty" disabled>
+                                                    Nenhum ponto disponível
                                                 </SelectItem>
-                                            ))}
+                                            )}
                                         </SelectContent>
                                     </Select>
                                 </div>

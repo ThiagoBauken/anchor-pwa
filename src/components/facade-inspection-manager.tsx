@@ -61,6 +61,7 @@ export function FacadeInspectionManager({
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [markers, setMarkers] = useState<PathologyMarker[]>([]);
   const [showGuideLines, setShowGuideLines] = useState(true);
+  const [visibleCategories, setVisibleCategories] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
   // Modal states
@@ -99,10 +100,16 @@ export function FacadeInspectionManager({
       setInspections(inspectionsData as any);
       setCategories(categoriesData as any);
 
+      // Initialize all categories as visible
+      if (categoriesData.length > 0) {
+        setVisibleCategories(new Set(categoriesData.map(c => c.id)));
+      }
+
       // Seed default categories if none exist
       if (categoriesData.length === 0) {
         const seededCategories = await seedDefaultPathologyCategories(projectId);
         setCategories(seededCategories as any);
+        setVisibleCategories(new Set(seededCategories.map(c => c.id)));
       }
     } catch (error) {
       console.error('❌ Error loading facade inspections:', error);
@@ -586,30 +593,72 @@ export function FacadeInspectionManager({
                             />
                           </div>
 
-                          {/* Category Selector */}
+                          {/* Category Selector with Visibility Toggle */}
                           <div>
-                            <Label>Selecione a Categoria de Patologia:</Label>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
+                            <div className="flex items-center justify-between mb-2">
+                              <Label>Selecione a Categoria de Patologia:</Label>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  const allVisible = visibleCategories.size === categories.filter(c => c.active).length;
+                                  if (allVisible) {
+                                    setVisibleCategories(new Set());
+                                  } else {
+                                    setVisibleCategories(new Set(categories.filter(c => c.active).map(c => c.id)));
+                                  }
+                                }}
+                              >
+                                {visibleCategories.size === categories.filter(c => c.active).length ? (
+                                  <>
+                                    <EyeOff className="w-4 h-4 mr-2" />
+                                    Ocultar Todas
+                                  </>
+                                ) : (
+                                  <>
+                                    <Eye className="w-4 h-4 mr-2" />
+                                    Mostrar Todas
+                                  </>
+                                )}
+                              </Button>
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                               {categories.filter(c => c.active).map(category => (
-                                <button
-                                  key={category.id}
-                                  onClick={() => setSelectedCategoryId(
-                                    selectedCategoryId === category.id ? null : category.id
-                                  )}
-                                  className={`p-3 rounded-lg border-2 text-sm font-medium transition ${
-                                    selectedCategoryId === category.id
-                                      ? 'border-black'
-                                      : 'border-gray-200 hover:border-gray-400'
-                                  }`}
-                                  style={{
-                                    backgroundColor: selectedCategoryId === category.id
-                                      ? category.color + '20'
-                                      : 'transparent',
-                                    color: category.color
-                                  }}
-                                >
-                                  {category.name}
-                                </button>
+                                <div key={category.id} className="relative">
+                                  <button
+                                    onClick={() => setSelectedCategoryId(
+                                      selectedCategoryId === category.id ? null : category.id
+                                    )}
+                                    className={`w-full p-3 rounded-lg border-2 text-sm font-medium transition ${
+                                      selectedCategoryId === category.id
+                                        ? 'border-black'
+                                        : 'border-gray-200 hover:border-gray-400'
+                                    } ${!visibleCategories.has(category.id) ? 'opacity-40' : ''}`}
+                                    style={{
+                                      backgroundColor: selectedCategoryId === category.id
+                                        ? category.color + '20'
+                                        : 'transparent',
+                                      color: category.color
+                                    }}
+                                  >
+                                    {category.name}
+                                  </button>
+                                  <input
+                                    type="checkbox"
+                                    checked={visibleCategories.has(category.id)}
+                                    onChange={(e) => {
+                                      const newVisible = new Set(visibleCategories);
+                                      if (e.target.checked) {
+                                        newVisible.add(category.id);
+                                      } else {
+                                        newVisible.delete(category.id);
+                                      }
+                                      setVisibleCategories(newVisible);
+                                    }}
+                                    className="absolute top-2 right-2 w-4 h-4 cursor-pointer"
+                                    title={visibleCategories.has(category.id) ? 'Ocultar esta categoria' : 'Mostrar esta categoria'}
+                                  />
+                                </div>
                               ))}
                             </div>
                           </div>
@@ -618,7 +667,7 @@ export function FacadeInspectionManager({
                           <FacadeMarkerCanvas
                             facadeSide={side}
                             categories={categories}
-                            markers={markers}
+                            markers={markers.filter(m => visibleCategories.has(m.categoryId))}
                             onCreateMarker={handleCreateMarker}
                             onUpdateMarker={handleUpdateMarker}
                             onDeleteMarker={handleDeleteMarker}

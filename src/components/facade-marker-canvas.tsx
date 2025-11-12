@@ -694,6 +694,24 @@ export function FacadeMarkerCanvas({
                         {marker.floor && <p><strong>Andar:</strong> {marker.floor}</p>}
                         {marker.area && <p><strong>Área:</strong> {marker.area.toFixed(2)} px²</p>}
                         {marker.description && <p><strong>Descrição:</strong> {marker.description}</p>}
+
+                        {/* Observations Field */}
+                        <div className="mt-3 space-y-2">
+                          <label className="text-sm font-semibold">Observações:</label>
+                          <textarea
+                            className="w-full p-2 border rounded-md text-sm min-h-[80px] focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            placeholder="Adicione observações sobre esta patologia..."
+                            value={marker.observations || ''}
+                            onChange={(e) => {
+                              onUpdateMarker(marker.id, { observations: e.target.value });
+                            }}
+                          />
+                          {marker.observations && (
+                            <p className="text-xs text-gray-500">
+                              Última atualização: {new Date(marker.updatedAt).toLocaleString('pt-BR')}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     ) : null;
                   })()}

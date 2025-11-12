@@ -16,6 +16,7 @@ interface FacadeMarkerCanvasProps {
   editable?: boolean;
   floorPositions?: Record<string, number>;
   divisionPositions?: Record<string, number>;
+  showGuideLines?: boolean;
 }
 
 export function FacadeMarkerCanvas({
@@ -28,7 +29,8 @@ export function FacadeMarkerCanvas({
   selectedCategoryId,
   editable = true,
   floorPositions,
-  divisionPositions
+  divisionPositions,
+  showGuideLines = true
 }: FacadeMarkerCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -90,66 +92,68 @@ export function FacadeMarkerCanvas({
     // DRAW GUIDE LINES (Andares and Divisões)
     // ========================================
 
-    // Draw vertical guide lines (Andares / Floors) - from left edge
-    if (floorPositions && Object.keys(floorPositions).length > 0) {
-      Object.entries(floorPositions).forEach(([floorName, position]) => {
-        const x = (position / 100) * canvas.width;
+    if (showGuideLines) {
+      // Draw horizontal guide lines (Andares / Floors) - floor levels from top to bottom
+      if (floorPositions && Object.keys(floorPositions).length > 0) {
+        Object.entries(floorPositions).forEach(([floorName, position]) => {
+          const y = (position / 100) * canvas.height;
 
-        // Draw vertical line
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, canvas.height);
-        ctx.strokeStyle = 'rgba(59, 130, 246, 0.6)'; // Blue with transparency
-        ctx.lineWidth = 2;
-        ctx.setLineDash([10, 5]); // Dashed line
-        ctx.stroke();
-        ctx.setLineDash([]); // Reset dash
+          // Draw horizontal line
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(canvas.width, y);
+          ctx.strokeStyle = 'rgba(59, 130, 246, 0.6)'; // Blue with transparency
+          ctx.lineWidth = 2;
+          ctx.setLineDash([10, 5]); // Dashed line
+          ctx.stroke();
+          ctx.setLineDash([]); // Reset dash
 
-        // Draw label at top
-        const labelPadding = 4;
-        const labelHeight = 20;
-        const labelWidth = ctx.measureText(floorName).width + labelPadding * 2;
+          // Draw label at left
+          const labelPadding = 4;
+          const labelHeight = 20;
+          const labelWidth = ctx.measureText(floorName).width + labelPadding * 2;
 
-        ctx.fillStyle = 'rgba(59, 130, 246, 0.9)'; // Blue background
-        ctx.fillRect(x - labelWidth / 2, 0, labelWidth, labelHeight);
+          ctx.fillStyle = 'rgba(59, 130, 246, 0.9)'; // Blue background
+          ctx.fillRect(0, y - labelHeight / 2, labelWidth, labelHeight);
 
-        ctx.fillStyle = 'white';
-        ctx.font = 'bold 12px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
-        ctx.fillText(floorName, x, labelPadding);
-      });
-    }
+          ctx.fillStyle = 'white';
+          ctx.font = 'bold 12px sans-serif';
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(floorName, labelPadding, y);
+        });
+      }
 
-    // Draw horizontal guide lines (Divisões / Divisions) - from top edge
-    if (divisionPositions && Object.keys(divisionPositions).length > 0) {
-      Object.entries(divisionPositions).forEach(([divisionName, position]) => {
-        const y = (position / 100) * canvas.height;
+      // Draw vertical guide lines (Divisões / Divisions) - sections from left to right
+      if (divisionPositions && Object.keys(divisionPositions).length > 0) {
+        Object.entries(divisionPositions).forEach(([divisionName, position]) => {
+          const x = (position / 100) * canvas.width;
 
-        // Draw horizontal line
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(canvas.width, y);
-        ctx.strokeStyle = 'rgba(34, 197, 94, 0.6)'; // Green with transparency
-        ctx.lineWidth = 2;
-        ctx.setLineDash([10, 5]); // Dashed line
-        ctx.stroke();
-        ctx.setLineDash([]); // Reset dash
+          // Draw vertical line
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, canvas.height);
+          ctx.strokeStyle = 'rgba(34, 197, 94, 0.6)'; // Green with transparency
+          ctx.lineWidth = 2;
+          ctx.setLineDash([10, 5]); // Dashed line
+          ctx.stroke();
+          ctx.setLineDash([]); // Reset dash
 
-        // Draw label at left
-        const labelPadding = 4;
-        const labelHeight = 20;
-        const labelWidth = ctx.measureText(divisionName).width + labelPadding * 2;
+          // Draw label at top
+          const labelPadding = 4;
+          const labelHeight = 20;
+          const labelWidth = ctx.measureText(divisionName).width + labelPadding * 2;
 
-        ctx.fillStyle = 'rgba(34, 197, 94, 0.9)'; // Green background
-        ctx.fillRect(0, y - labelHeight / 2, labelWidth, labelHeight);
+          ctx.fillStyle = 'rgba(34, 197, 94, 0.9)'; // Green background
+          ctx.fillRect(x - labelWidth / 2, 0, labelWidth, labelHeight);
 
-        ctx.fillStyle = 'white';
-        ctx.font = 'bold 12px sans-serif';
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(divisionName, labelPadding, y);
-      });
+          ctx.fillStyle = 'white';
+          ctx.font = 'bold 12px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'top';
+          ctx.fillText(divisionName, x, labelPadding);
+        });
+      }
     }
 
     // Draw existing markers (SORTED BY ZINDEX - lower first, higher on top)
@@ -279,7 +283,7 @@ export function FacadeMarkerCanvas({
         });
       }
     }
-  }, [imageLoaded, imageObj, canvasSize, markers, categories, hoveredMarker, selectedMarker, currentPoints, currentRect, selectedCategoryId, facadeSide.imageWidth, facadeSide.imageHeight, floorPositions, divisionPositions]);
+  }, [imageLoaded, imageObj, canvasSize, markers, categories, hoveredMarker, selectedMarker, currentPoints, currentRect, selectedCategoryId, facadeSide.imageWidth, facadeSide.imageHeight, floorPositions, divisionPositions, showGuideLines]);
 
   // Handle mouse down for RECTANGLE mode
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -364,22 +368,22 @@ export function FacadeMarkerCanvas({
     let snappedX = x;
     let snappedY = y;
 
-    // Snap X to vertical guide lines (floors)
+    // Snap Y to horizontal guide lines (floors - now horizontal)
     if (floorPositions) {
       Object.values(floorPositions).forEach(position => {
-        const lineX = (position / 100) * canvasWidth;
-        if (Math.abs(x - lineX) < snapThreshold) {
-          snappedX = lineX;
+        const lineY = (position / 100) * canvasHeight;
+        if (Math.abs(y - lineY) < snapThreshold) {
+          snappedY = lineY;
         }
       });
     }
 
-    // Snap Y to horizontal guide lines (divisions)
+    // Snap X to vertical guide lines (divisions - now vertical)
     if (divisionPositions) {
       Object.values(divisionPositions).forEach(position => {
-        const lineY = (position / 100) * canvasHeight;
-        if (Math.abs(y - lineY) < snapThreshold) {
-          snappedY = lineY;
+        const lineX = (position / 100) * canvasWidth;
+        if (Math.abs(x - lineX) < snapThreshold) {
+          snappedX = lineX;
         }
       });
     }

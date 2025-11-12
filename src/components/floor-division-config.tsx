@@ -203,15 +203,15 @@ export function FloorDivisionConfig({
           </Card>
 
           <div className="grid grid-cols-2 gap-6">
-            {/* Andares (Vertical Lines - Left Side) */}
+            {/* Andares (Horizontal Lines - Floor Levels) */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-sm flex items-center gap-2">
-                  🏢 Andares (Linhas Verticais)
-                  <Badge variant="outline" className="text-blue-600">Lado Esquerdo</Badge>
+                  🏢 Andares (Linhas Horizontais)
+                  <Badge variant="outline" className="text-blue-600">Níveis</Badge>
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Linhas verticais no lado esquerdo da fachada. Posição: % da largura (esquerda → direita).
+                  Linhas horizontais marcando níveis/andares da fachada. Posição: % da altura (topo → base).
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -276,15 +276,15 @@ export function FloorDivisionConfig({
               </CardContent>
             </Card>
 
-            {/* Divisões (Horizontal Lines - Top Side) */}
+            {/* Divisões (Vertical Lines - Sections) */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-sm flex items-center gap-2">
-                  📍 Divisões (Linhas Horizontais)
-                  <Badge variant="outline" className="text-green-600">Topo</Badge>
+                  📍 Divisões (Linhas Verticais)
+                  <Badge variant="outline" className="text-green-600">Seções</Badge>
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Linhas horizontais no topo da fachada. Posição: % da altura (topo → base).
+                  Linhas verticais dividindo a fachada em seções. Posição: % da largura (esquerda → direita).
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">

@@ -37,7 +37,7 @@ import { FacadeMarkerCanvas } from './facade-marker-canvas';
 import { PathologyCategoryEditor } from './pathology-category-editor';
 import { FloorDivisionConfig } from './floor-division-config';
 import { PathologyMarkerForm } from './pathology-marker-form';
-import { Plus, Upload, Trash2, Eye, Edit2, MapPin, Settings } from 'lucide-react';
+import { Plus, Upload, Trash2, Eye, Edit2, MapPin, Settings, Grid3x3, EyeOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface FacadeInspectionManagerProps {
@@ -60,6 +60,7 @@ export function FacadeInspectionManager({
   const [selectedFacadeSide, setSelectedFacadeSide] = useState<FacadeSide | null>(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [markers, setMarkers] = useState<PathologyMarker[]>([]);
+  const [showGuideLines, setShowGuideLines] = useState(true);
   const [loading, setLoading] = useState(true);
 
   // Modal states
@@ -557,7 +558,24 @@ export function FacadeInspectionManager({
                       {selectedFacadeSide?.id === side.id && (
                         <div className="space-y-4">
                           {/* Floor/Division Configuration */}
-                          <div className="flex justify-end">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant={showGuideLines ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setShowGuideLines(!showGuideLines)}
+                            >
+                              {showGuideLines ? (
+                                <>
+                                  <Grid3x3 className="w-4 h-4 mr-2" />
+                                  Ocultar Linhas Guia
+                                </>
+                              ) : (
+                                <>
+                                  <EyeOff className="w-4 h-4 mr-2" />
+                                  Mostrar Linhas Guia
+                                </>
+                              )}
+                            </Button>
                             <FloorDivisionConfig
                               availableFloors={selectedInspection?.availableFloors || []}
                               availableDivisions={selectedInspection?.availableDivisions || []}
@@ -608,6 +626,7 @@ export function FacadeInspectionManager({
                             editable={canEdit}
                             floorPositions={selectedInspection?.floorPositions as Record<string, number>}
                             divisionPositions={selectedInspection?.divisionPositions as Record<string, number>}
+                            showGuideLines={showGuideLines}
                           />
                         </div>
                       )}

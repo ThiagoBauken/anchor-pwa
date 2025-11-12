@@ -284,54 +284,8 @@ export function UsersTab() {
         </TabsList>
 
         <TabsContent value="users" className="mt-6">
-          <div className="grid md:grid-cols-2 gap-6">
-            <Card className="bg-card/90 backdrop-blur-sm">
-              <CardHeader>
-                <CardTitle>Adicionar Usuário Local</CardTitle>
-                <CardDescription>Crie um perfil local para rastrear modificações (apenas offline).</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleAddUser} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="new-user">Nome do Usuário</Label>
-                    <Input
-                      id="new-user"
-                      value={newUserName}
-                      onChange={(e) => setNewUserName(e.target.value)}
-                      placeholder="Ex: João Silva"
-                    />
-                  </div>
-                  {users.length > 0 && (
-                    <div className="space-y-2">
-                      <Label>Permissão</Label>
-                      <RadioGroup
-                        value={newUserRole}
-                        onValueChange={(value) => setNewUserRole(value as UserRole)}
-                        className="flex flex-col gap-2"
-                      >
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="technician" id="r-technician" />
-                          <Label htmlFor="r-technician">Técnico</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="team_admin" id="r-team-admin" />
-                          <Label htmlFor="r-team-admin">Admin de Equipe</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="company_admin" id="r-company-admin" />
-                          <Label htmlFor="r-company-admin">Admin da Empresa</Label>
-                        </div>
-                      </RadioGroup>
-                    </div>
-                  )}
-                  <Button type="submit" className="w-full" disabled={!newUserName.trim()}>
-                    <UserPlus className="mr-2 h-4 w-4" /> Adicionar Usuário Local
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-card/90 backdrop-blur-sm">
+          {/* 🔧 REMOVED: "Adicionar Usuário Local" card - users should be invited via email, not created manually */}
+          <Card className="bg-card/90 backdrop-blur-sm">
               <CardHeader>
                 <CardTitle>Usuários Registrados</CardTitle>
                 <CardDescription>Usuários ativos no sistema.</CardDescription>

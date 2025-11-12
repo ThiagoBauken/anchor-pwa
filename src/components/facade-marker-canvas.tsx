@@ -365,8 +365,7 @@ export function FacadeMarkerCanvas({
     let snappedY = y;
 
     // Snap X to vertical guide lines (floors)
-    if (facadeSide.floorPositions) {
-      const floorPositions = facadeSide.floorPositions as Record<string, number>;
+    if (floorPositions) {
       Object.values(floorPositions).forEach(position => {
         const lineX = (position / 100) * canvasWidth;
         if (Math.abs(x - lineX) < snapThreshold) {
@@ -376,8 +375,7 @@ export function FacadeMarkerCanvas({
     }
 
     // Snap Y to horizontal guide lines (divisions)
-    if (facadeSide.divisionPositions) {
-      const divisionPositions = facadeSide.divisionPositions as Record<string, number>;
+    if (divisionPositions) {
       Object.values(divisionPositions).forEach(position => {
         const lineY = (position / 100) * canvasHeight;
         if (Math.abs(y - lineY) < snapThreshold) {

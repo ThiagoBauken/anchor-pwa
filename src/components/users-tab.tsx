@@ -371,7 +371,6 @@ export function UsersTab() {
                 </div>
               </CardContent>
             </Card>
-          </div>
         </TabsContent>
 
         {(currentUser?.role === 'company_admin' || currentUser?.role === 'superadmin') && (

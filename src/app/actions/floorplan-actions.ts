@@ -206,7 +206,7 @@ export async function deleteFloorPlan(id: string) {
 
       // 2. Delete all photos associated with the points
       await prisma.photo.deleteMany({
-        where: { anchorPointId: { in: pointIds } }
+        where: { pontoId: { in: pointIds } }
       });
 
       // 3. Delete all anchor points

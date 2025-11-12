@@ -9,12 +9,11 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Button } from './ui/button';
-import { Download, RotateCw, RotateCcw, Archive, Spline, Search } from 'lucide-react';
+import { Download, RotateCw, RotateCcw, Archive, Search } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { useToast } from '@/hooks/use-toast';
 import { Slider } from './ui/slider';
 import { Switch } from './ui/switch';
-import { LineToolDialog } from './line-tool-dialog';
 import { PointDetailsModal } from './point-details-modal';
 import { SkeletonMap } from './ui/skeleton';
 import { LoadingSpinner } from './ui/loading-spinner';
@@ -63,12 +62,7 @@ export function MapTab({ onActiveFloorPlanChange }: { onActiveFloorPlanChange?: 
   
   // Local states for missing features
   const [showArchived, setShowArchived] = useState(false);
-  const [lineToolMode, setLineToolMode] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-
-  const resetLineTool = () => {
-    setLineToolMode(false);
-  };
   
   console.log('[DEBUG] MapTab render:', {
     hasCurrentProject: !!currentProject,
@@ -97,7 +91,6 @@ export function MapTab({ onActiveFloorPlanChange }: { onActiveFloorPlanChange?: 
   const [rotation, setRotation] = useState(0);
   const [markerSize, setMarkerSize] = useState(4);
   const [labelFontSize, setLabelFontSize] = useState(10);
-  const [isLineToolOpen, setIsLineToolOpen] = useState(false);
   const { toast } = useToast();
   const [mapDimensions, setMapDimensions] = useState({ width: 1200, height: 900 });
 
@@ -186,18 +179,6 @@ export function MapTab({ onActiveFloorPlanChange }: { onActiveFloorPlanChange?: 
     await toggleFloorPlanActive(floorPlanId, active);
   };
 
-  const handleToggleLineTool = () => {
-    const newMode = !lineToolMode;
-    setLineToolMode(newMode);
-    if (newMode) {
-      setIsLineToolOpen(true);
-      toast({ title: 'Ferramenta de Linha Ativada', description: 'Selecione um ponto de início e um ponto de fim no mapa.' });
-    } else {
-      setIsLineToolOpen(false);
-      resetLineTool();
-    }
-  };
-
   if (!currentUser) {
     return (
       <Card className="mt-4 bg-destructive/10 border-destructive">
@@ -279,21 +260,15 @@ export function MapTab({ onActiveFloorPlanChange }: { onActiveFloorPlanChange?: 
               </div>
             </div>
 
-             <div className="space-y-2">
-                <Label>Ferramentas de Admin</Label>
-                <div className='flex items-center gap-2'>
-                    {(currentUser?.role === 'superadmin' || currentUser?.role === 'company_admin' || currentUser?.role === 'team_admin') && (
-                        <div className="flex items-center space-x-2 pt-2">
-                            <Switch id="show-archived" checked={showArchived} onCheckedChange={setShowArchived} />
-                            <Label htmlFor="show-archived">Mostrar Arquivados</Label>
-                        </div>
-                     )}
-                     <Button onClick={handleToggleLineTool} variant={lineToolMode ? 'secondary' : 'outline'} className="w-full">
-                        <Spline className="mr-2 h-4 w-4" />
-                        {lineToolMode ? 'Desativar Ferramenta' : 'Adicionar Pontos Entre'}
-                    </Button>
+             {(currentUser?.role === 'superadmin' || currentUser?.role === 'company_admin' || currentUser?.role === 'team_admin') && (
+                <div className="space-y-2">
+                    <Label>Ferramentas de Admin</Label>
+                    <div className="flex items-center space-x-2">
+                        <Switch id="show-archived" checked={showArchived} onCheckedChange={setShowArchived} />
+                        <Label htmlFor="show-archived">Mostrar Arquivados</Label>
+                    </div>
                 </div>
-            </div>
+             )}
         </div>
 
         <div className="mb-4">
@@ -343,9 +318,8 @@ export function MapTab({ onActiveFloorPlanChange }: { onActiveFloorPlanChange?: 
         ))}
     </div>
 
-    <LineToolDialog isOpen={isLineToolOpen} onOpenChange={setIsLineToolOpen} />
     {selectedPointIdFromSearch && (
-        <PointDetailsModal 
+        <PointDetailsModal
             isOpen={!!selectedPointIdFromSearch}
             onClose={() => setSelectedPointIdFromSearch(null)}
             pointId={selectedPointIdFromSearch}

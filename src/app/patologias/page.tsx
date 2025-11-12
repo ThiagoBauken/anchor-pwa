@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { FacadeInspection, FacadeSide, PathologyMarker, PathologyCategory, Project } from '@/types';
 import {
   getInspectionsForProject,
@@ -16,10 +16,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ArrowLeft, Filter, Eye, Image, MapPin } from 'lucide-react';
 
-export default function PatologiasPage() {
+// Force dynamic rendering (required for context access)
+export const dynamic = 'force-dynamic';
+
+function PatologiasContent() {
   const router = useRouter();
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+  const searchParams = useSearchParams();
+  const projectId = searchParams.get('projectId');
+
   const [inspections, setInspections] = useState<FacadeInspection[]>([]);
   const [selectedInspectionId, setSelectedInspectionId] = useState<string>('');
   const [categories, setCategories] = useState<PathologyCategory[]>([]);
@@ -30,18 +34,12 @@ export default function PatologiasPage() {
   const [selectedFacade, setSelectedFacade] = useState<string>('all');
   const [loading, setLoading] = useState(false);
 
-  // Load projects from context (you may need to adjust this based on your context setup)
+  // Load inspections when project is loaded
   useEffect(() => {
-    // This is a placeholder - you'll need to implement project loading based on your context
-    // For now, we'll load projects when an inspection is selected
-  }, []);
-
-  // Load inspections when project is selected
-  useEffect(() => {
-    if (selectedProjectId) {
+    if (projectId) {
       loadInspectionsAndCategories();
     }
-  }, [selectedProjectId]);
+  }, [projectId]);
 
   // Load markers when inspection is selected
   useEffect(() => {
@@ -79,11 +77,13 @@ export default function PatologiasPage() {
   }, [allMarkers, selectedCategories, searchTerm, selectedFacade]);
 
   const loadInspectionsAndCategories = async () => {
+    if (!projectId) return;
+
     setLoading(true);
     try {
       const [inspData, catData] = await Promise.all([
-        getInspectionsForProject(selectedProjectId),
-        getPathologyCategoriesForProject(selectedProjectId)
+        getInspectionsForProject(projectId),
+        getPathologyCategoriesForProject(projectId)
       ]);
       setInspections(inspData as any);
       setCategories(catData as any);
@@ -163,44 +163,35 @@ export default function PatologiasPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Project and Inspection Selection */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Projeto</Label>
-              <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione um projeto" />
-                </SelectTrigger>
-                <SelectContent>
-                  {projects.map(project => (
-                    <SelectItem key={project.id} value={project.id}>
-                      {project.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          {projectId ? (
+            <>
+              {/* Inspection Selection */}
+              <div className="space-y-2">
+                <Label>Inspeção</Label>
+                <Select
+                  value={selectedInspectionId}
+                  onValueChange={setSelectedInspectionId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione uma inspeção" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {inspections.map(inspection => (
+                      <SelectItem key={inspection.id} value={inspection.id}>
+                        {inspection.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-gray-500">
+                Por favor, acesse esta página através do botão "Ver Todas as Patologias" na interface de inspeções de fachada.
+              </p>
             </div>
-
-            <div className="space-y-2">
-              <Label>Inspeção</Label>
-              <Select
-                value={selectedInspectionId}
-                onValueChange={setSelectedInspectionId}
-                disabled={!selectedProjectId}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione uma inspeção" />
-                </SelectTrigger>
-                <SelectContent>
-                  {inspections.map(inspection => (
-                    <SelectItem key={inspection.id} value={inspection.id}>
-                      {inspection.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          )}
 
           {/* Search and Facade Filter */}
           {selectedInspectionId && (
@@ -384,5 +375,19 @@ export default function PatologiasPage() {
         </Card>
       )}
     </div>
+  );
+}
+
+export default function PatologiasPage() {
+  return (
+    <Suspense fallback={
+      <div className="container mx-auto p-6 max-w-7xl">
+        <div className="text-center py-12">
+          <p className="text-gray-500">Carregando...</p>
+        </div>
+      </div>
+    }>
+      <PatologiasContent />
+    </Suspense>
   );
 }

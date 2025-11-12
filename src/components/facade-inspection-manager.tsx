@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   FacadeInspection,
   FacadeSide,
@@ -53,6 +54,7 @@ export function FacadeInspectionManager({
   currentUserId,
   canEdit = true
 }: FacadeInspectionManagerProps) {
+  const router = useRouter();
   const { toast } = useToast();
   const [inspections, setInspections] = useState<FacadeInspection[]>([]);
   const [categories, setCategories] = useState<PathologyCategory[]>([]);
@@ -344,6 +346,16 @@ export function FacadeInspectionManager({
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Inspeções de Fachada</h2>
         <div className="flex gap-2">
+          {/* View All Pathologies Button */}
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => router.push(`/patologias?projectId=${projectId}`)}
+          >
+            <Eye className="w-4 h-4 mr-2" />
+            Ver Todas as Patologias
+          </Button>
+
           {/* Manage Categories Button */}
           <Dialog open={showCategoryEditorModal} onOpenChange={setShowCategoryEditorModal}>
             <DialogTrigger asChild>

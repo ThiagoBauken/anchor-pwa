@@ -474,9 +474,17 @@ export function UsersTab() {
                             <div className="text-sm text-muted-foreground">
                               <span>Permissão: {invitation.role === 'superadmin' ? 'Super Admin' : invitation.role === 'company_admin' ? 'Admin da Empresa' : invitation.role === 'team_admin' ? 'Admin de Equipe' : 'Técnico'}</span>
                               <span className="mx-2">•</span>
-                              <span>Enviado por: {invitation.invited_by}</span>
+                              <span>Enviado por: {invitation.invited_by || 'N/A'}</span>
                               <span className="mx-2">•</span>
-                              <span>Expira: {new Date(invitation.expires_at).toLocaleDateString('pt-BR')}</span>
+                              <span>
+                                Expira: {
+                                  invitation.expires_at
+                                    ? new Date(invitation.expires_at).toLocaleDateString('pt-BR')
+                                    : invitation.created_at
+                                    ? new Date(new Date(invitation.created_at).getTime() + 24 * 60 * 60 * 1000).toLocaleDateString('pt-BR')
+                                    : 'N/A'
+                                }
+                              </span>
                               {invitation.max_uses && (
                                 <>
                                   <span className="mx-2">•</span>

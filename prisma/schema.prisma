@@ -863,25 +863,29 @@ model FloorPlan {
 
 // Facade Inspection System
 model FacadeInspection {
-  id               String                @id @default(cuid())
-  projectId        String                @map("project_id")
-  name             String
-  description      String?
-  status           InspectionStatus      @default(in_progress)
-  scheduledDate    DateTime?             @map("scheduled_date")
-  startedAt        DateTime?             @map("started_at")
-  completedAt      DateTime?             @map("completed_at")
-  inspectorId      String?               @map("inspector_id")
-  inspectorName    String?               @map("inspector_name")
-  engineerId       String?               @map("engineer_id")
-  createdByUserId  String                @map("created_by_user_id")
-  createdAt        DateTime              @default(now()) @map("created_at")
-  updatedAt        DateTime              @updatedAt @map("updated_at")
-  project          Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  engineer         User?                 @relation("InspectionEngineer", fields: [engineerId], references: [id])
-  createdBy        User                  @relation("InspectionCreator", fields: [createdByUserId], references: [id])
-  facadeSides      FacadeSide[]
-  reports          InspectionReport[]
+  id                 String                @id @default(cuid())
+  projectId          String                @map("project_id")
+  name               String
+  description        String?
+  status             InspectionStatus      @default(in_progress)
+  scheduledDate      DateTime?             @map("scheduled_date")
+  startedAt          DateTime?             @map("started_at")
+  completedAt        DateTime?             @map("completed_at")
+  inspectorId        String?               @map("inspector_id")
+  inspectorName      String?               @map("inspector_name")
+  engineerId         String?               @map("engineer_id")
+  createdByUserId    String                @map("created_by_user_id")
+  availableFloors    String[]              @default([]) @map("available_floors")
+  availableDivisions String[]              @default([]) @map("available_divisions")
+  floorPositions     Json?                 @map("floor_positions") // Guide line positions for floors (% from top)
+  divisionPositions  Json?                 @map("division_positions") // Guide line positions for divisions (% from left)
+  createdAt          DateTime              @default(now()) @map("created_at")
+  updatedAt          DateTime              @updatedAt @map("updated_at")
+  project            Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  engineer           User?                 @relation("InspectionEngineer", fields: [engineerId], references: [id])
+  createdBy          User                  @relation("InspectionCreator", fields: [createdByUserId], references: [id])
+  facadeSides        FacadeSide[]
+  reports            InspectionReport[]
 
   @@index([projectId])
   @@index([status])
@@ -901,10 +905,6 @@ model FacadeSide {
   notes                String?
   imageWidth           Int?               @map("image_width")
   imageHeight          Int?               @map("image_height")
-  availableFloors      String[]           @default([]) @map("available_floors")
-  availableDivisions   String[]           @default([]) @map("available_divisions")
-  floorPositions       Json?              @map("floor_positions") // Guide line positions for floors (% from left)
-  divisionPositions    Json?              @map("division_positions") // Guide line positions for divisions (% from top)
   order                Int                @default(0)
   createdAt            DateTime           @default(now()) @map("created_at")
   updatedAt            DateTime           @updatedAt @map("updated_at")

@@ -221,9 +221,9 @@ export function FacadeInspectionManager({
     floorPositions: Record<string, number>,
     divisionPositions: Record<string, number>
   ) => {
-    if (!selectedFacadeSide) return;
+    if (!selectedInspection) return;
 
-    const updated = await updateFacadeSide(selectedFacadeSide.id, {
+    const updated = await updateFacadeInspection(selectedInspection.id, {
       availableFloors: floors,
       availableDivisions: divisions,
       floorPositions: floorPositions,
@@ -231,20 +231,10 @@ export function FacadeInspectionManager({
     });
 
     if (updated) {
-      setSelectedFacadeSide(updated as any);
-      // Update in inspections list
-      if (selectedInspection) {
-        const updatedInspection = {
-          ...selectedInspection,
-          facadeSides: selectedInspection.facadeSides?.map(side =>
-            side.id === selectedFacadeSide.id ? updated : side
-          )
-        };
-        setSelectedInspection(updatedInspection as any);
-        setInspections(prev =>
-          prev.map(i => i.id === selectedInspection.id ? updatedInspection as any : i)
-        );
-      }
+      setSelectedInspection(updated as any);
+      setInspections(prev =>
+        prev.map(i => i.id === selectedInspection.id ? updated as any : i)
+      );
     }
   };
 
@@ -541,10 +531,10 @@ export function FacadeInspectionManager({
                           {/* Floor/Division Configuration */}
                           <div className="flex justify-end">
                             <FloorDivisionConfig
-                              availableFloors={side.availableFloors || []}
-                              availableDivisions={side.availableDivisions || []}
-                              floorPositions={side.floorPositions as Record<string, number> || {}}
-                              divisionPositions={side.divisionPositions as Record<string, number> || {}}
+                              availableFloors={selectedInspection?.availableFloors || []}
+                              availableDivisions={selectedInspection?.availableDivisions || []}
+                              floorPositions={selectedInspection?.floorPositions as Record<string, number> || {}}
+                              divisionPositions={selectedInspection?.divisionPositions as Record<string, number> || {}}
                               onUpdateConfig={handleUpdateFloorDivisionConfig}
                               disabled={!canEdit}
                             />
@@ -588,6 +578,8 @@ export function FacadeInspectionManager({
                             onDeleteMarker={handleDeleteMarker}
                             selectedCategoryId={selectedCategoryId}
                             editable={canEdit}
+                            floorPositions={selectedInspection?.floorPositions as Record<string, number>}
+                            divisionPositions={selectedInspection?.divisionPositions as Record<string, number>}
                           />
                         </div>
                       )}

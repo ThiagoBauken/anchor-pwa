@@ -14,6 +14,8 @@ interface FacadeMarkerCanvasProps {
   onDeleteMarker: (markerId: string) => Promise<void>;
   selectedCategoryId: string | null;
   editable?: boolean;
+  floorPositions?: Record<string, number>;
+  divisionPositions?: Record<string, number>;
 }
 
 export function FacadeMarkerCanvas({
@@ -24,7 +26,9 @@ export function FacadeMarkerCanvas({
   onUpdateMarker,
   onDeleteMarker,
   selectedCategoryId,
-  editable = true
+  editable = true,
+  floorPositions,
+  divisionPositions
 }: FacadeMarkerCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -87,9 +91,7 @@ export function FacadeMarkerCanvas({
     // ========================================
 
     // Draw vertical guide lines (Andares / Floors) - from left edge
-    if (facadeSide.floorPositions && Object.keys(facadeSide.floorPositions).length > 0) {
-      const floorPositions = facadeSide.floorPositions as Record<string, number>;
-
+    if (floorPositions && Object.keys(floorPositions).length > 0) {
       Object.entries(floorPositions).forEach(([floorName, position]) => {
         const x = (position / 100) * canvas.width;
 
@@ -120,9 +122,7 @@ export function FacadeMarkerCanvas({
     }
 
     // Draw horizontal guide lines (Divisões / Divisions) - from top edge
-    if (facadeSide.divisionPositions && Object.keys(facadeSide.divisionPositions).length > 0) {
-      const divisionPositions = facadeSide.divisionPositions as Record<string, number>;
-
+    if (divisionPositions && Object.keys(divisionPositions).length > 0) {
       Object.entries(divisionPositions).forEach(([divisionName, position]) => {
         const y = (position / 100) * canvas.height;
 

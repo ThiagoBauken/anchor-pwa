@@ -226,6 +226,10 @@ export async function updateFacadeInspection(
     inspectorId?: string;
     inspectorName?: string;
     engineerId?: string;
+    availableFloors?: string[];
+    availableDivisions?: string[];
+    floorPositions?: Record<string, number>;
+    divisionPositions?: Record<string, number>;
   }
 ) {
   // Authentication and authorization

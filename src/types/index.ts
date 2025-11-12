@@ -247,6 +247,12 @@ export interface FacadeInspection {
   updatedAt: string;
   createdByUserId: string;
 
+  // Guide lines configuration (moved from FacadeSide to inspection level)
+  availableFloors?: string[];
+  availableDivisions?: string[];
+  floorPositions?: Record<string, number>;
+  divisionPositions?: Record<string, number>;
+
   // Relations
   project?: Project;
   createdBy?: User;
@@ -268,15 +274,6 @@ export interface FacadeSide {
   imageWidth?: number;
   imageHeight?: number;
   order: number;
-
-  // Floor and Division configuration (defined before marking)
-  availableFloors?: string[]; // e.g., ["1", "2", "3"... "10"] or ["A1", "A2"... "A10"]
-  availableDivisions?: string[]; // e.g., ["D1", "D2", "D3"... "D7"]
-
-  // Guide line positions (percentage from top/left edge, 0-100)
-  floorPositions?: Record<string, number>; // e.g., {"1": 10, "2": 30, "3": 50} - vertical lines
-  divisionPositions?: Record<string, number>; // e.g., {"D1": 15, "D2": 45, "D3": 75} - horizontal lines
-
   createdAt: string;
   updatedAt: string;
 

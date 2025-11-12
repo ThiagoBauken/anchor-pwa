@@ -59,7 +59,7 @@ const naturalSort = (a: { numeroPonto: string }, b: { numeroPonto: string }) => 
     return numA - numB;
 };
 
-const getDataAndPhotos = async (project: Project, points: AnchorPoint[], tests: AnchorTest[], activeFloorPlan: string | null) => {
+const getDataAndPhotos = async (project: Project, points: AnchorPoint[], tests: AnchorTest[], activeFloorPlan: string | null, floorPlansParam?: any[]) => {
     // 1. Group points by location first
     const pointsByLocation: { [key: string]: AnchorPoint[] } = points.reduce((acc, point) => {
         const location = point.localizacao || 'Sem Localização';
@@ -74,7 +74,7 @@ const getDataAndPhotos = async (project: Project, points: AnchorPoint[], tests: 
     for (const location in pointsByLocation) {
         pointsByLocation[location].sort(naturalSort);
     }
-    
+
     // Get location order based on the sorted keys
     const locationOrder = Object.keys(pointsByLocation).sort();
 
@@ -115,31 +115,45 @@ const getDataAndPhotos = async (project: Project, points: AnchorPoint[], tests: 
                 return { src: dataUrl, title };
             })
         );
-        
+
         reportDataByLocation[location] = { tableData, photoData: processedPhotos };
     }
-    
-    // Use the activeFloorPlan URL to find the correct map element
-    const mapElement = activeFloorPlan ? document.getElementById(`export-map-${activeFloorPlan}`) : null;
-    let mapImage = '';
-    if (mapElement) {
-        try {
-            const { offsetWidth, offsetHeight } = mapElement;
-            mapImage = await toPng(mapElement, { 
-                quality: 1.0, 
-                pixelRatio: 2,
-                width: offsetWidth,
-                height: offsetHeight,
-                backgroundColor: 'white' // Set a background color to avoid transparency issues
-            });
-        } catch (error) {
-            console.error('Error generating map image:', error);
-            mapImage = 'https://placehold.co/800x600.png';
+
+    // 🔧 FIX: Capture ALL floor plans from project
+    const mapImages: Array<{ floorPlanId: string, image: string, name: string, order: number }> = [];
+
+    // Get floor plans from parameter, or fallback to project.floorPlans
+    const floorPlans = floorPlansParam || (project as any).floorPlans || [];
+
+    for (const floorPlan of floorPlans) {
+        const mapElement = document.getElementById(`export-map-${floorPlan.id}`);
+        if (mapElement) {
+            try {
+                const { offsetWidth, offsetHeight } = mapElement;
+                const mapImage = await toPng(mapElement, {
+                    quality: 1.0,
+                    pixelRatio: 2,
+                    width: offsetWidth,
+                    height: offsetHeight,
+                    backgroundColor: 'white'
+                });
+                mapImages.push({
+                    floorPlanId: floorPlan.id,
+                    image: mapImage,
+                    name: floorPlan.name || `Planta ${floorPlan.order + 1}`,
+                    order: floorPlan.order || 0
+                });
+            } catch (error) {
+                console.error(`Error generating map image for floor plan ${floorPlan.id}:`, error);
+            }
+        } else {
+            console.warn(`Map element for floor plan ${floorPlan.id} not found`);
         }
-    } else {
-        console.warn('Map element for export not found. Active floor plan:', activeFloorPlan);
     }
-    
+
+    // Sort map images by order
+    mapImages.sort((a, b) => a.order - b.order);
+
     const floorPlanImages = await Promise.all(
       (project.floorPlanImages || []).map(img => fetchAsDataURL(img))
     );
@@ -147,9 +161,9 @@ const getDataAndPhotos = async (project: Project, points: AnchorPoint[], tests: 
 
     return {
         reportDataByLocation,
-        mapImage,
+        mapImages, // 🔧 Changed from single mapImage to array of mapImages
         project: projectWithDataUrls,
-        locationOrder // Return the sorted order
+        locationOrder
     };
 };
 
@@ -209,8 +223,8 @@ const addWatermark = (doc: jsPDF, logoDataUrl: string) => {
     }
 };
 
-export const generatePdfReport = async (project: Project, points: AnchorPoint[], tests: AnchorTest[], users: User[], logoDataUrl: string | null, activeFloorPlan: string | null) => {
-    const { reportDataByLocation, mapImage, locationOrder } = await getDataAndPhotos(project, points, tests, activeFloorPlan);
+export const generatePdfReport = async (project: Project, points: AnchorPoint[], tests: AnchorTest[], users: User[], logoDataUrl: string | null, activeFloorPlan: string | null, floorPlans?: any[]) => {
+    const { reportDataByLocation, mapImages, locationOrder } = await getDataAndPhotos(project, points, tests, activeFloorPlan, floorPlans);
     const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
     
     let currentY = 35; // Start content lower to avoid header overlap
@@ -345,19 +359,41 @@ export const generatePdfReport = async (project: Project, points: AnchorPoint[],
     }
 
 
-    // --- MAP ---
-    if (mapImage) {
-        if (currentY > pageHeight - 120) { // Check if map fits
-             doc.addPage();
-             currentY = 35; // Consistent spacing after header
-        }
-        currentY = addSectionTitle('7. MAPA DOS PONTOS', currentY);
-        try {
-            const mapHeight = (pageWidth - margin * 2) * 0.7;
-            doc.addImage(mapImage, 'PNG', margin, currentY, pageWidth - (margin * 2), 0);
-        } catch(e) {
-            console.error("Error adding map image to PDF:", e);
-            addText("Erro ao renderizar a imagem do mapa.", currentY);
+    // --- MAPS (ALL FLOOR PLANS) ---
+    if (mapImages && mapImages.length > 0) {
+        for (let i = 0; i < mapImages.length; i++) {
+            const mapData = mapImages[i];
+
+            if (currentY > pageHeight - 120) { // Check if map fits
+                doc.addPage();
+                currentY = 35; // Consistent spacing after header
+            }
+
+            const sectionTitle = i === 0
+                ? '7. MAPAS DOS PONTOS'
+                : '';
+
+            if (sectionTitle) {
+                currentY = addSectionTitle(sectionTitle, currentY);
+            }
+
+            currentY = addSubSectionTitle(`Planta: ${mapData.name}`, currentY);
+
+            try {
+                doc.addImage(mapData.image, 'PNG', margin, currentY, pageWidth - (margin * 2), 0);
+                // Estimate the height of the added image to update currentY
+                const imgHeight = (pageWidth - margin * 2) * 0.7; // Rough estimate
+                currentY += imgHeight + 10;
+            } catch(e) {
+                console.error(`Error adding map image for ${mapData.name} to PDF:`, e);
+                currentY = addText(`Erro ao renderizar a imagem da planta ${mapData.name}.`, currentY);
+            }
+
+            // Add page break if not the last map
+            if (i < mapImages.length - 1 && currentY > pageHeight - 50) {
+                doc.addPage();
+                currentY = 35;
+            }
         }
     }
 
@@ -459,8 +495,8 @@ const createWatermarkImageRun = async (url: string): Promise<ImageRun> => {
     });
 };
 
-export const exportToWord = async (project: Project, points: AnchorPoint[], tests: AnchorTest[], users: User[], logoDataUrl: string | null, fileName: string, activeFloorPlan: string | null) => {
-    const { reportDataByLocation, mapImage, locationOrder } = await getDataAndPhotos(project, points, tests, activeFloorPlan);
+export const exportToWord = async (project: Project, points: AnchorPoint[], tests: AnchorTest[], users: User[], logoDataUrl: string | null, fileName: string, activeFloorPlan: string | null, floorPlans?: any[]) => {
+    const { reportDataByLocation, mapImages, locationOrder } = await getDataAndPhotos(project, points, tests, activeFloorPlan, floorPlans);
     const allApproved = points.length > 0 && points.every(p => p.status === 'Aprovado');
 
     const watermarkHeader = logoDataUrl ? new Header({
@@ -545,12 +581,16 @@ export const exportToWord = async (project: Project, points: AnchorPoint[], test
         docChildren.push(dataTable as any);
     }
     
-    // Add map
-    docChildren.push(new Paragraph({ text: '9. MAPA DOS PONTOS', style: "Heading1", pageBreakBefore: true }));
-    if (mapImage) {
-        docChildren.push(new Paragraph({ children: [await createImageRun(mapImage, 600, 450)], alignment: AlignmentType.CENTER }));
+    // Add maps (all floor plans)
+    docChildren.push(new Paragraph({ text: '9. MAPAS DOS PONTOS', style: "Heading1", pageBreakBefore: true }));
+    if (mapImages && mapImages.length > 0) {
+        for (let i = 0; i < mapImages.length; i++) {
+            const mapData = mapImages[i];
+            docChildren.push(new Paragraph({ text: `Planta: ${mapData.name}`, style: "Heading3" }));
+            docChildren.push(new Paragraph({ children: [await createImageRun(mapData.image, 600, 450)], alignment: AlignmentType.CENTER }));
+        }
     } else {
-        docChildren.push(new Paragraph('Mapa não disponível.'));
+        docChildren.push(new Paragraph('Mapas não disponíveis.'));
     }
 
     // Add photos

@@ -73,7 +73,7 @@ function ReportSummary() {
 }
 
 export function ReportsTab() {
-  const { points, tests, currentProject, users } = useAnchorData();
+  const { points, tests, currentProject, users, floorPlans } = useAnchorData();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
@@ -152,8 +152,8 @@ export function ReportsTab() {
     toast({ title: 'Gerando DOCX...', description: 'Isso pode levar alguns instantes.' });
     try {
       const exportName = `relatorio_${currentProject.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}`;
-      // Pass the active floor plan to the export function
-      await exportToWord(currentProject, points, tests, users, null, exportName, activeFloorPlan);
+      // Pass the active floor plan and all floor plans to the export function
+      await exportToWord(currentProject, points, tests, users, null, exportName, activeFloorPlan, floorPlans);
       toast({ title: 'DOCX Gerado!', description: 'O download do seu relatório começará em breve.' });
     } catch(err) {
       console.error("DOCX Generation Error: ", err);
@@ -171,8 +171,8 @@ export function ReportsTab() {
     setIsGeneratingPdf(true);
     toast({ title: 'Gerando PDF...', description: 'Isso pode levar alguns instantes.' });
     try {
-      // Pass the active floor plan to the export function
-      await generatePdfReport(currentProject, points, tests, users, null, activeFloorPlan);
+      // Pass the active floor plan and all floor plans to the export function
+      await generatePdfReport(currentProject, points, tests, users, null, activeFloorPlan, floorPlans);
       toast({ title: 'PDF Gerado!', description: 'O download do seu relatório começará em breve.' });
     } catch(err) {
       console.error("PDF Generation Error: ", err);

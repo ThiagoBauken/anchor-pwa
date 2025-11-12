@@ -279,7 +279,7 @@ export function FacadeMarkerCanvas({
         });
       }
     }
-  }, [imageLoaded, imageObj, canvasSize, markers, categories, hoveredMarker, selectedMarker, currentPoints, currentRect, selectedCategoryId, facadeSide.imageWidth, facadeSide.imageHeight, facadeSide.floorPositions, facadeSide.divisionPositions]);
+  }, [imageLoaded, imageObj, canvasSize, markers, categories, hoveredMarker, selectedMarker, currentPoints, currentRect, selectedCategoryId, facadeSide.imageWidth, facadeSide.imageHeight, floorPositions, divisionPositions]);
 
   // Handle mouse down for RECTANGLE mode
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {

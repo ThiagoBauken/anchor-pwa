@@ -187,16 +187,40 @@ export async function deleteFloorPlan(id: string) {
   });
 
   try {
-    // First, update all anchor points to remove the floorPlanId reference
-    await prisma.anchorPoint.updateMany({
+    // Get all anchor points associated with this floor plan
+    const pointsToDelete = await prisma.anchorPoint.findMany({
       where: { floorPlanId: id },
-      data: { floorPlanId: null }
+      select: { id: true }
     });
 
-    // Then delete the floor plan
+    const pointIds = pointsToDelete.map(p => p.id);
+
+    if (pointIds.length > 0) {
+      console.log(`Deleting ${pointIds.length} anchor points and associated data for floor plan ${id}`);
+
+      // Delete in order to avoid foreign key constraints:
+      // 1. Delete all tests associated with the points
+      await prisma.anchorTest.deleteMany({
+        where: { pontoId: { in: pointIds } }
+      });
+
+      // 2. Delete all photos associated with the points
+      await prisma.photo.deleteMany({
+        where: { anchorPointId: { in: pointIds } }
+      });
+
+      // 3. Delete all anchor points
+      await prisma.anchorPoint.deleteMany({
+        where: { id: { in: pointIds } }
+      });
+    }
+
+    // 4. Finally, delete the floor plan
     await prisma.floorPlan.delete({
       where: { id }
     });
+
+    console.log(`Floor plan ${id} and ${pointIds.length} associated points deleted successfully`);
     return true;
   } catch (error) {
     console.error('Error deleting floor plan:', error);

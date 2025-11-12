@@ -88,20 +88,15 @@ export function FloorPlanSelector({
   return (
     <div className="flex items-center gap-2">
       <Select
-        value={activeFloorPlanId || "all"}
-        onValueChange={(value) => onSelectFloorPlan(value === "all" ? null : value)}
+        value={activeFloorPlanId || (sortedFloorPlans.length > 0 ? sortedFloorPlans[0].id : "")}
+        onValueChange={(value) => onSelectFloorPlan(value)}
       >
         <SelectTrigger className="w-[220px]">
           <SelectValue>
-            {activeFloorPlan ? activeFloorPlan.name : "Todas as plantas"}
+            {activeFloorPlan ? activeFloorPlan.name : (sortedFloorPlans.length > 0 ? sortedFloorPlans[0].name : "Nenhuma planta")}
           </SelectValue>
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">
-            <div className="flex items-center gap-2">
-              <span className="font-medium">Todas as plantas</span>
-            </div>
-          </SelectItem>
           {sortedFloorPlans.map((floorPlan) => (
             <SelectItem
               key={floorPlan.id}

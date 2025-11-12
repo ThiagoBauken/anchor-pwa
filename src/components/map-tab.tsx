@@ -1,6 +1,6 @@
 
 "use client";
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { InteractiveMap } from './interactive-map';
 import { Badge } from './ui/badge';
@@ -81,6 +81,16 @@ export function MapTab({ onActiveFloorPlanChange }: { onActiveFloorPlanChange?: 
     currentUserName: currentUser?.name,
     currentUserRole: currentUser?.role
   });
+
+  // 🔧 FIX: Garantir que sempre tenha uma planta selecionada (não mostrar "Todas as plantas")
+  useEffect(() => {
+    if (floorPlans && floorPlans.length > 0 && !currentFloorPlan) {
+      // Se não há planta selecionada, selecionar a primeira automaticamente
+      const firstActivePlan = floorPlans.find(fp => fp.active) || floorPlans[0];
+      setCurrentFloorPlan(firstActivePlan);
+      console.log('🔧 Auto-selecionando primeira planta:', firstActivePlan.name);
+    }
+  }, [floorPlans, currentFloorPlan, setCurrentFloorPlan]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPointIdFromSearch, setSelectedPointIdFromSearch] = useState<string | null>(null);

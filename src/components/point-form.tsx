@@ -60,42 +60,46 @@ export function PointForm({ pointToEdit, initialX = 0, initialY = 0, onPointAdde
 
   const getNextPointNumber = (localizacao?: string) => {
     if (!points || points.length === 0) return "1";
-    
+
     // Se uma localização específica for fornecida, use ela; senão use a última selecionada
     const targetLocation = localizacao || currentLocation || lastUsedLocation || (locations.length > 0 ? locations[0].name : '');
-    
+
     console.log('🔍 getNextPointNumber chamado:', {
       localizacao,
       currentLocation,
       targetLocation,
       totalPoints: points.length,
-      currentProjectId: currentProject?.id
+      currentProjectId: currentProject?.id,
+      currentFloorPlanId: currentFloorPlan?.id
     });
-    
-    // Filtrar pontos pela localização e projeto atual
-    const pointsInLocation = points.filter(p => 
-      p.localizacao === targetLocation && 
-      p.projectId === currentProject?.id
+
+    // 🔧 FIX: Filtrar pontos pela localização, projeto E PLANTA BAIXA atual
+    // Cada planta baixa tem sua própria sequência de numeração (P1, P2, P3...)
+    const pointsInLocation = points.filter(p =>
+      p.localizacao === targetLocation &&
+      p.projectId === currentProject?.id &&
+      p.floorPlanId === currentFloorPlan?.id  // 🔧 ADDED: Filtro por planta baixa
     );
-    
-    console.log('📍 Pontos na localização:', {
+
+    console.log('📍 Pontos na localização e planta baixa:', {
       targetLocation,
-      pointsInLocation: pointsInLocation.map(p => ({ numero: p.numeroPonto, localizacao: p.localizacao }))
+      floorPlanName: currentFloorPlan?.name,
+      pointsInLocation: pointsInLocation.map(p => ({ numero: p.numeroPonto, localizacao: p.localizacao, floorPlanId: p.floorPlanId }))
     });
-    
+
     if (pointsInLocation.length === 0) return "1";
-    
-    // Encontrar o maior número na localização específica
+
+    // Encontrar o maior número na localização específica DESTA PLANTA BAIXA
     const numbers = pointsInLocation.map(p => parseInt(p.numeroPonto, 10) || 0);
     const highestPointNumber = Math.max(0, ...numbers);
     const nextNumber = (highestPointNumber + 1).toString();
-    
-    console.log('📊 Números encontrados:', {
+
+    console.log('📊 Números encontrados na planta atual:', {
       numbers,
       highestPointNumber,
       nextNumber
     });
-    
+
     return nextNumber;
   };
 
